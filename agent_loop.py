@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from candidate_validator import validate_candidate, score_candidate
 from failure_synthesizer import synthesize
 from generate_candidates import generate_new_candidates
+from execution_planner import plan_execution
+from execution_proposal import propose_execution
 
 STATE_FILE = Path("agent_state.json")
 LEDGER_FILE = Path("idea_ledger.jsonl")
@@ -57,7 +59,20 @@ def main():
         except Exception as e:
             results.append({"id": c.get("id", "unknown"), "valid": False, "error": str(e)})
 
-    append_ledger({"timestamp": now(), "type": "candidate_validation", "results": results})
+    # ✅ ADD: planning + proposal
+    plan = plan_execution(candidates)
+    proposal = propose_execution(plan)
+
+    append_ledger({
+        "timestamp": now(),
+        "type": "candidate_validation",
+        "results": results,
+        "plan": {
+            "ready_count": len(plan.get("ready", [])),
+            "blocked_count": len(plan.get("blocked", [])),
+        },
+        "proposal": proposal,
+    })
 
     failures = [r for r in results if not r.get("valid")]
     if failures:
@@ -69,7 +84,10 @@ def main():
         state["last_status"] = "ok"
         print("PASS: all candidates valid")
 
+    state["last_proposal"] = proposal
     save_state(state)
+
+    print(f"PROPOSAL: {proposal}")
     print(f"STATE: {state['last_status']} | Run #{state['run_count']}")
 
 if __name__ == "__main__":
