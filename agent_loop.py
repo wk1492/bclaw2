@@ -1,63 +1,76 @@
 import json
 from pathlib import Path
+from datetime import UTC, datetime
 
-from candidate_validator import validate_candidate
+from candidate_validator import validate_candidate, score_candidate
 from failure_synthesizer import synthesize
+from generate_candidates import generate_new_candidates
 
 STATE_FILE = Path("agent_state.json")
 LEDGER_FILE = Path("idea_ledger.jsonl")
 CANDIDATES_FILE = Path("agent_candidates.json")
 
+def now():
+    return datetime.now(UTC).isoformat()
 
 def load_state():
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
-    return {"run_count": 0, "last_status": "new"}
-
+    return {"run_count": 0, "last_status": "new", "last_task": None}
 
 def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
-
 
 def append_ledger(record):
     with LEDGER_FILE.open("a") as f:
         f.write(json.dumps(record) + "\n")
 
+def load_or_generate_candidates():
+    if not CANDIDATES_FILE.exists() or CANDIDATES_FILE.stat().st_size < 20:
+        print("INFO: generating candidates because file is missing or empty")
+        candidates = generate_new_candidates()
+        CANDIDATES_FILE.write_text(json.dumps(candidates, indent=2) + "\n")
+        return candidates
+
+    candidates = json.loads(CANDIDATES_FILE.read_text())
+    active = [c for c in candidates if c.get("status") not in {"implemented", "archived"}]
+    if not active:
+        print("INFO: generating candidates because active queue is exhausted")
+        candidates = generate_new_candidates()
+        CANDIDATES_FILE.write_text(json.dumps(candidates, indent=2) + "\n")
+        return candidates
+
+    return candidates
 
 def main():
     state = load_state()
     state["run_count"] += 1
+    state["last_task"] = "persistent_agent_loop"
 
-    if not CANDIDATES_FILE.exists():
-        print("ALERT: no candidates file")
-        state["last_status"] = "no_candidates"
-        save_state(state)
-        return
-
-    candidates = json.loads(CANDIDATES_FILE.read_text())
+    candidates = load_or_generate_candidates()
 
     results = []
     for c in candidates:
         try:
             validate_candidate(c)
-            results.append({"id": c["id"], "valid": True})
+            results.append({"id": c.get("id"), "valid": True, "score": score_candidate(c)})
         except Exception as e:
-            results.append({"id": c.get("id","unknown"), "valid": False, "error": str(e)})
+            results.append({"id": c.get("id", "unknown"), "valid": False, "error": str(e)})
 
-    append_ledger({"results": results})
+    append_ledger({"timestamp": now(), "type": "candidate_validation", "results": results})
 
-    failures = [r for r in results if not r["valid"]]
+    failures = [r for r in results if not r.get("valid")]
     if failures:
         proposals = synthesize(json.dumps(failures))
-        print("ALERT: failures detected")
-        print(proposals)
         state["last_status"] = "failures"
+        print("ALERT: validation failures detected")
+        print(json.dumps(proposals, indent=2))
     else:
-        print("PASS: all candidates valid")
         state["last_status"] = "ok"
+        print("PASS: all candidates valid")
 
     save_state(state)
-
+    print(f"STATE: {state['last_status']} | Run #{state['run_count']}")
 
 if __name__ == "__main__":
     main()

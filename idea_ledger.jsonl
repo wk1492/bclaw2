@@ -5,3 +5,4 @@
 {"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
 {"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
 {"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
+{"timestamp": "2026-05-05T21:55:29.244840+00:00", "type": "candidate_validation", "results": [{"id": "candidate-20260505-001", "valid": true, "score": 100}, {"id": "candidate-20260505-002", "valid": true, "score": 100}, {"id": "candidate-20260505-003", "valid": true, "score": 80}]}
