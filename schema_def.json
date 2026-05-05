@@ -1,0 +1,7 @@
+{
+  "required": ["id", "value"],
+  "types": {
+    "id": "str",
+    "value": ["int", "float"]
+  }
+}

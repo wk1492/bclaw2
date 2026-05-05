@@ -1,0 +1,4 @@
+{"timestamp": "2026-05-05T16:37:08.402777", "type": "candidate_validation", "result": {"id": "candidate-001", "valid": true}}
+{"timestamp": "2026-05-05T16:44:36.564575+00:00", "type": "candidate_validation", "result": {"id": "good-001", "valid": true}}
+{"timestamp": "2026-05-05T16:44:36.564892+00:00", "type": "candidate_validation", "result": {"id": "bad-001", "valid": false, "reason": "candidate missing required field: 'status'"}}
+{"timestamp": "2026-05-05T16:44:36.564898+00:00", "type": "alert", "result": {"level": "ALERT", "type": "invalid_candidate", "candidate_id": "bad-001", "message": "Candidate failed validation"}}

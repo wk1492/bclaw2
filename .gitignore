@@ -1,0 +1,7 @@
+*
+!*.py
+!*.json
+!*.md
+!*.sh
+!idea_ledger.jsonl
+!.gitignore

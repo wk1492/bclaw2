@@ -1,0 +1,1 @@
+[{"id":"candidate-001","source_model":"manual","task_id":"agent_cycle","proposed_action":"baseline cycle run","rationale":"verify end-to-end candidate→ledger path","evidence":"uses bridge_candidates_to_ledger then reads IdeaLedger","risk_notes":"none","status":"proposed"}]
