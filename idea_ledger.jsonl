@@ -4,3 +4,4 @@
 {"timestamp": "2026-05-05T16:44:36.564898+00:00", "type": "alert", "result": {"level": "ALERT", "type": "invalid_candidate", "candidate_id": "bad-001", "message": "Candidate failed validation"}}
 {"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
 {"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
+{"results": [{"id": "candidate-20260505-001", "valid": true}, {"id": "candidate-20260505-002", "valid": true}, {"id": "candidate-20260505-003", "valid": true}]}
