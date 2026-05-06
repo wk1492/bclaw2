@@ -1,0 +1,76 @@
+{
+  "graph_id": "bclaw2_graph_v1",
+  "version": 4,
+  "nodes": {
+    "N001": {
+      "node_id": "N001",
+      "label": "early pace pressure",
+      "activation": 0.7,
+      "metadata": {}
+    },
+    "N002": {
+      "node_id": "N002",
+      "label": "late fatigue",
+      "activation": 0.56,
+      "metadata": {}
+    }
+  },
+  "edges": {
+    "E001": {
+      "edge_id": "E001",
+      "source": "N001",
+      "target": "N002",
+      "weight": 0.8,
+      "confidence": 0.9,
+      "metadata": {}
+    }
+  },
+  "events": [
+    {
+      "timestamp": "2026-05-06T15:59:29.353592+00:00",
+      "version": 1,
+      "type": "node_added",
+      "payload": {
+        "node_id": "N001",
+        "label": "early pace pressure",
+        "activation": 0.7,
+        "metadata": {}
+      }
+    },
+    {
+      "timestamp": "2026-05-06T15:59:29.353720+00:00",
+      "version": 2,
+      "type": "node_added",
+      "payload": {
+        "node_id": "N002",
+        "label": "late fatigue",
+        "activation": 0.0,
+        "metadata": {}
+      }
+    },
+    {
+      "timestamp": "2026-05-06T15:59:29.353728+00:00",
+      "version": 3,
+      "type": "edge_added",
+      "payload": {
+        "edge_id": "E001",
+        "source": "N001",
+        "target": "N002",
+        "weight": 0.8,
+        "confidence": 0.9,
+        "metadata": {}
+      }
+    },
+    {
+      "timestamp": "2026-05-06T15:59:29.353731+00:00",
+      "version": 4,
+      "type": "activation_updated",
+      "payload": {
+        "node_id": "N002",
+        "old": 0.0,
+        "new": 0.56,
+        "source": "worked_example"
+      }
+    }
+  ]
+}
