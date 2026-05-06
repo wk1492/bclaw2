@@ -1,7 +1,13 @@
+# Default: ignore everything
 *
+
+# Explicitly allow what we need
 !*.py
 !*.json
+!*.jsonl
 !*.md
 !*.sh
-!idea_ledger.jsonl
 !.gitignore
+!GIT_SAFETY.md
+!scripts/
+!scripts/*.sh
