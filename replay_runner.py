@@ -59,6 +59,7 @@ def replay_latest_checkpoint():
 
 if __name__ == "__main__":
     records = load_execution_records()
+
     print(json.dumps({
         "execution_replay": replay_summary(records),
         "latest_checkpoint": replay_latest_checkpoint(),
