@@ -7,10 +7,12 @@ from failure_synthesizer import synthesize
 from generate_candidates import generate_new_candidates
 from execution_planner import plan_execution
 from execution_proposal import propose_execution
+from ledger_writer import LedgerWriter
 
 STATE_FILE = Path("agent_state.json")
 LEDGER_FILE = Path("idea_ledger.jsonl")
 CANDIDATES_FILE = Path("agent_candidates.json")
+ledger_writer = LedgerWriter()
 
 def now():
     return datetime.now(UTC).isoformat()
@@ -23,9 +25,6 @@ def load_state():
 def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
 
-def append_ledger(record):
-    with LEDGER_FILE.open("a") as f:
-        f.write(json.dumps(record) + "\n")
 
 def load_or_generate_candidates():
     if not CANDIDATES_FILE.exists() or CANDIDATES_FILE.stat().st_size < 20:
@@ -63,7 +62,7 @@ def main():
     plan = plan_execution(candidates)
     proposal = propose_execution(plan)
 
-    append_ledger({
+    ledger_writer.append({
         "timestamp": now(),
         "type": "candidate_validation",
         "results": results,
