@@ -1,25 +1,21 @@
 import json
 from pathlib import Path
-
+from datetime import datetime
 from agent_message_schema import AgentMessage
 
-MESSAGE_FILE = Path("message_queue.jsonl")
-
+QUEUE_FILE = Path("message_queue.jsonl")
+PROCESSED_DIR = Path("processed_messages")
+PROCESSED_DIR.mkdir(exist_ok=True)
 
 def load_messages():
-    if not MESSAGE_FILE.exists():
+    if not QUEUE_FILE.exists():
         return []
-
     messages = []
-    for line in MESSAGE_FILE.read_text().splitlines():
-        if not line.strip():
-            continue
-        msg = json.loads(line)
-        AgentMessage.validate(msg)
-        messages.append(msg)
-
+    with QUEUE_FILE.open("r") as f:
+        for line in f:
+            if line.strip():
+                messages.append(json.loads(line))
     return messages
-
 
 def classify_messages(messages):
     classified = {
@@ -27,28 +23,43 @@ def classify_messages(messages):
         "node_proposals": [],
         "candidate_proposals": [],
         "alerts": [],
-        "other": [],
+        "other": []
     }
-
     for msg in messages:
-        msg_type = msg.get("type")
-        if msg_type == "edge_proposal":
-            classified["edge_proposals"].append(msg)
-        elif msg_type == "node_proposal":
-            classified["node_proposals"].append(msg)
-        elif msg_type == "candidate_proposal":
-            classified["candidate_proposals"].append(msg)
-        elif msg_type == "alert":
-            classified["alerts"].append(msg)
-        else:
-            classified["other"].append(msg)
-
+        try:
+            AgentMessage.validate(msg)
+            t = msg.get("type")
+            if t == "edge_proposal":
+                classified["edge_proposals"].append(msg)
+            elif t == "node_proposal":
+                classified["node_proposals"].append(msg)
+            elif t == "candidate_proposal":
+                classified["candidate_proposals"].append(msg)
+            elif t == "alert":
+                classified["alerts"].append(msg)
+            else:
+                classified["other"].append(msg)
+        except Exception as e:
+            print(f"WARNING: invalid message {msg.get('message_id')}: {e}")
     return classified
 
+def archive_message(msg):
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_file = PROCESSED_DIR / f"{ts}_{msg.get('message_id','unknown')}.json"
+    archive_file.write_text(json.dumps(msg, indent=2))
 
-if __name__ == "__main__":
+def main():
+    if not QUEUE_FILE.exists() or QUEUE_FILE.stat().st_size == 0:
+        print("No messages in queue")
+        return
+
     messages = load_messages()
+    if not messages:
+        print("No messages in queue")
+        return
+
     classified = classify_messages(messages)
+
     print(json.dumps({
         "message_count": len(messages),
         "edge_proposals": len(classified["edge_proposals"]),
@@ -57,3 +68,19 @@ if __name__ == "__main__":
         "alerts": len(classified["alerts"]),
         "other": len(classified["other"]),
     }, indent=2))
+
+    archived = []
+    try:
+        for msg in messages:
+            archive_message(msg)
+            archived.append(msg.get("message_id", "unknown"))
+    except Exception as e:
+        print(f"ALERT: archive failed; queue preserved: {e}")
+        print(f"Archived before failure: {len(archived)}/{len(messages)}")
+        return
+
+    QUEUE_FILE.write_text("")
+    print(f"Processed and archived {len(messages)} messages")
+
+if __name__ == "__main__":
+    main()
