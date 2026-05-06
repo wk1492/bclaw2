@@ -1,28 +1,64 @@
-from graph_state import GraphState
+from graph_state import Edge, Node, make_graph
 
 
-def test_add_node_and_edge():
-    g = GraphState()
-    g.add_node("A", "cause", 0.5)
-    g.add_node("B", "effect", 0.0)
-    g.add_edge("E1", "A", "B", 0.75, confidence=0.8)
+def test_same_logical_graph_same_hash_despite_insertion_order():
+    g1 = make_graph(
+        "g",
+        nodes=[
+            Node("B", "late fatigue", 0.2),
+            Node("A", "early pace", 0.7),
+        ],
+        edges=[
+            Edge("E2", "B", "A", -0.1),
+            Edge("E1", "A", "B", 0.8),
+        ],
+    )
 
-    assert g.nodes["A"].activation == 0.5
-    assert g.edges["E1"].weight == 0.75
-    assert len(g.incoming_edges("B")) == 1
-    assert g.version == 3
+    g2 = make_graph(
+        "g",
+        nodes=[
+            Node("A", "early pace", 0.7),
+            Node("B", "late fatigue", 0.2),
+        ],
+        edges=[
+            Edge("E1", "A", "B", 0.8),
+            Edge("E2", "B", "A", -0.1),
+        ],
+    )
+
+    assert g1.serialize() == g2.serialize()
+    assert g1.graph_hash() == g2.graph_hash()
 
 
-def test_clamps_values():
-    g = GraphState()
-    g.add_node("A", "too high", 9.0)
-    assert g.nodes["A"].activation == 1.0
+def test_metadata_order_does_not_change_hash():
+    g1 = make_graph(
+        "g",
+        nodes=[Node("A", "pace", metadata={"z": 2, "a": 1})],
+        edges=[],
+        metadata={"b": 2, "a": 1},
+    )
 
-    g.set_activation("A", -9.0)
-    assert g.nodes["A"].activation == -1.0
+    g2 = make_graph(
+        "g",
+        nodes=[Node("A", "pace", metadata={"a": 1, "z": 2})],
+        edges=[],
+        metadata={"a": 1, "b": 2},
+    )
+
+    assert g1.serialize() == g2.serialize()
+    assert g1.graph_hash() == g2.graph_hash()
+
+
+def test_float_rounding_through_serializer_keeps_hash_stable():
+    g1 = make_graph("g", nodes=[Node("A", "pace", 0.123456789123456)])
+    g2 = make_graph("g", nodes=[Node("A", "pace", 0.123456789123499)])
+
+    assert g1.serialize() == g2.serialize()
+    assert g1.graph_hash() == g2.graph_hash()
 
 
 if __name__ == "__main__":
-    test_add_node_and_edge()
-    test_clamps_values()
-    print("PASS: graph_state tests")
+    test_same_logical_graph_same_hash_despite_insertion_order()
+    test_metadata_order_does_not_change_hash()
+    test_float_rounding_through_serializer_keeps_hash_stable()
+    print("PASS: deterministic graph state")
