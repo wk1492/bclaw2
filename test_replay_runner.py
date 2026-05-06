@@ -1,20 +1,18 @@
-from replay_runner import replay_summary, count_types
+from replay_runner import count_types, replay_summary
 
 
 def test_count_types():
     records = [
-        {"type": "a", "hash": "h1"},
-        {"type": "a", "hash": "h2"},
-        {"type": "b", "hash": "h3"},
+        {"type": "a", "event_hash": "h1"},
+        {"type": "a", "event_hash": "h2"},
+        {"type": "b", "event_hash": "h3"},
     ]
 
     assert count_types(records) == {"a": 2, "b": 1}
 
 
 def test_replay_summary():
-    records = [
-        {"type": "run", "hash": "abc"},
-    ]
+    records = [{"type": "run", "event_hash": "abc"}]
 
     summary = replay_summary(records)
 
