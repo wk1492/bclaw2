@@ -11,3 +11,12 @@
 !GIT_SAFETY.md
 !scripts/
 !scripts/*.sh
+
+# Runtime memory / queues
+idea_ledger.jsonl
+message_examples.jsonl
+message_queue.jsonl
+
+# SafePatcher backups
+.patch_backups/
+
