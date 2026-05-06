@@ -486,3 +486,83 @@ def test_orchestrator_candidate_validation_repeatability():
     _, summary_2 = run_pipeline([EXAMPLE_VALID], return_summary=True, candidates=candidates)
 
     assert summary_1["candidate_validation"] == summary_2["candidate_validation"]
+
+# --- Determinism guardrail: same logical pipeline input must produce same summary ---
+def test_run_pipeline_is_deterministic_for_fixed_inputs():
+    import copy
+    import json
+    import inspect
+    from orchestrator import run_pipeline
+    from serializer_registry import canonical_serialize
+
+    records = [
+        {
+            "id": "record-001",
+            "type": "candidate_validation",
+            "candidate_id": "candidate-a",
+            "score": 0.82,
+            "valid": True,
+            "metadata": {"source": "determinism_test"},
+        },
+        {
+            "id": "record-002",
+            "type": "candidate_validation",
+            "candidate_id": "candidate-b",
+            "score": 0.61,
+            "valid": True,
+            "metadata": {"source": "determinism_test"},
+        },
+    ]
+
+    candidates = [
+        {
+            "id": "candidate-a",
+            "status": "proposed",
+            "priority": 1,
+            "task_id": "determinism-a",
+            "proposed_action": "Use candidate A for deterministic orchestrator testing.",
+            "rationale": "Candidate A provides a stable validation path for repeatability tests.",
+            "evidence": "Fixed synthetic inputs should produce identical summaries across runs.",
+            "risk_notes": "Low risk because this is test-only synthetic data.",
+        },
+        {
+            "id": "candidate-b",
+            "status": "proposed",
+            "priority": 2,
+            "task_id": "determinism-b",
+            "proposed_action": "Use candidate B as a second deterministic comparison input.",
+            "rationale": "Candidate B gives the orchestrator enough structure to exercise selection logic.",
+            "evidence": "Multiple candidates help catch ordering, sorting, or preference drift.",
+            "risk_notes": "Low risk because this is test-only synthetic data.",
+        },
+    ]
+
+    def call_once():
+        sig = inspect.signature(run_pipeline)
+        kwargs = {}
+
+        for name in sig.parameters:
+            if name in {"records", "input_records"}:
+                kwargs[name] = copy.deepcopy(records)
+            elif name in {"candidates", "candidate_set"}:
+                kwargs[name] = copy.deepcopy(candidates)
+            elif name == "strategy":
+                kwargs[name] = "keep_first"
+            elif name == "return_summary":
+                kwargs[name] = True
+            elif name == "return_full_pipeline_state":
+                kwargs[name] = True
+
+        try:
+            return run_pipeline(**kwargs)
+        except TypeError:
+            # Fallback for simple legacy signature.
+            return run_pipeline(copy.deepcopy(records), strategy="keep_first")
+
+    first = call_once()
+    second = call_once()
+
+    assert canonical_serialize(first) == canonical_serialize(second), (
+        "run_pipeline produced nondeterministic output for identical inputs:\n"
+        + json.dumps({"first": first, "second": second}, indent=2, default=str)
+    )
