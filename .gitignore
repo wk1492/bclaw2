@@ -1,7 +1,7 @@
-# Default: ignore everything
+# Ignore everything by default
 *
 
-# Explicitly allow what we need
+# Allow only what we need
 !*.py
 !*.json
 !*.jsonl
