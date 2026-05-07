@@ -1,0 +1,74 @@
+{
+  "contract_id": "underperformance_v1",
+  "input_races": [
+    {
+      "actual_finish": 5,
+      "expected_band": 2,
+      "horse_id": "H1",
+      "odds": 2.0,
+      "predicted_underperformed": true,
+      "race_id": "R1"
+    },
+    {
+      "actual_finish": 3,
+      "expected_band": 4,
+      "horse_id": "H2",
+      "odds": 5.0,
+      "predicted_underperformed": true,
+      "race_id": "R1"
+    },
+    {
+      "actual_finish": 6,
+      "expected_band": 3,
+      "horse_id": "H3",
+      "odds": 3.0,
+      "predicted_underperformed": true,
+      "race_id": "R2"
+    },
+    {
+      "actual_finish": 7,
+      "expected_band": 7,
+      "horse_id": "H4",
+      "odds": 10.0,
+      "predicted_underperformed": false,
+      "race_id": "R2"
+    }
+  ],
+  "labeled": [
+    {
+      "correct": true,
+      "horse_id": "H1",
+      "predicted_underperformed": true,
+      "race_id": "R1",
+      "true_underperformed": true
+    },
+    {
+      "correct": false,
+      "horse_id": "H2",
+      "predicted_underperformed": true,
+      "race_id": "R1",
+      "true_underperformed": false
+    },
+    {
+      "correct": true,
+      "horse_id": "H3",
+      "predicted_underperformed": true,
+      "race_id": "R2",
+      "true_underperformed": true
+    },
+    {
+      "correct": false,
+      "horse_id": "H4",
+      "predicted_underperformed": false,
+      "race_id": "R2",
+      "true_underperformed": false
+    }
+  ],
+  "summary": {
+    "contract_id": "underperformance_v1",
+    "predicted_true_count": 3,
+    "primary_metric": "precision_underperformed_true",
+    "total_predictions": 4,
+    "value": 0.6666666666666666
+  }
+}
