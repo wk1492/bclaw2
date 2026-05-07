@@ -1,0 +1,36 @@
+{
+  "contract_id": "underperformance_v1",
+  "task": "Detect whether a horse is more likely than its odds imply to underperform relative to expectation.",
+  "inputs": [
+    "off_odds",
+    "historical_performance_features",
+    "race_context_features",
+    "trainer_jockey_aggregates"
+  ],
+  "odds_to_expected_band": {
+    "method": "fixed_rank_bucket",
+    "locked": true,
+    "description": "Map off_odds to an expected finish band before race evaluation."
+  },
+  "outcome_label": {
+    "positive_class": "underperformed_true",
+    "rule": "actual_finish_position is meaningfully worse than expected_finish_band by a fixed predeclared margin",
+    "margin_locked": true
+  },
+  "metrics": [
+    "precision_underperformed_true",
+    "recall_underperformed_true",
+    "accuracy",
+    "conditional_underperformance_rate"
+  ],
+  "primary_metric": "precision_underperformed_true",
+  "constraints": [
+    "no automatic threshold tuning",
+    "no automatic weight updates",
+    "no automatic model swaps",
+    "feature changes require candidate proposal and human approval",
+    "odds band changes require candidate proposal and human approval",
+    "underperformance margin changes require candidate proposal and human approval"
+  ],
+  "allowed_loop": "predict_observe_evaluate_log_only"
+}
