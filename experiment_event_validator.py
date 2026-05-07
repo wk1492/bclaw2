@@ -1,27 +1,51 @@
-def validate_experiment_result_event(event):
-    if event.get("type") != "experiment_result":
-        raise ValueError("experiment event type must be experiment_result")
+class ExperimentEventValidationError(ValueError):
+    pass
 
-    if event.get("event_status") != "ok":
-        raise ValueError("experiment_result event_status must be ok")
 
-    for key in ["candidate_id", "task_id", "action", "experiment"]:
-        if not event.get(key):
-            raise ValueError(f"missing required experiment_result field: {key}")
+def _require(d, key, path=""):
+    if key not in d:
+        raise ExperimentEventValidationError(f"Missing required field: {path}{key}")
+    return d[key]
 
-    experiment = event["experiment"]
-    if experiment.get("name") != "underperformance_experiment":
-        raise ValueError("experiment.name must be underperformance_experiment")
 
-    summary = experiment.get("summary")
+def validate_experiment_event(event):
+    if not isinstance(event, dict):
+        raise ExperimentEventValidationError("Event must be a dict")
+
+    if _require(event, "type") != "experiment_result":
+        raise ExperimentEventValidationError("type must be experiment_result")
+
+    if _require(event, "event_status") != "ok":
+        raise ExperimentEventValidationError("event_status must be ok")
+
+    for key in ["candidate_id", "task_id", "action"]:
+        value = _require(event, key)
+        if not isinstance(value, str) or not value:
+            raise ExperimentEventValidationError(f"{key} must be a non-empty string")
+
+    experiment = _require(event, "experiment")
+    if not isinstance(experiment, dict):
+        raise ExperimentEventValidationError("experiment must be a dict")
+
+    name = _require(experiment, "name", "experiment.")
+    if name != "underperformance_experiment":
+        raise ExperimentEventValidationError("experiment.name must be underperformance_experiment")
+
+    summary = _require(experiment, "summary", "experiment.")
     if not isinstance(summary, dict):
-        raise ValueError("experiment.summary must be a dict")
+        raise ExperimentEventValidationError("experiment.summary must be a dict")
 
-    for key in ["contract_id", "primary_metric", "value"]:
-        if key not in summary:
-            raise ValueError(f"missing experiment.summary field: {key}")
+    contract_id = _require(summary, "contract_id", "experiment.summary.")
+    primary_metric = _require(summary, "primary_metric", "experiment.summary.")
+    value = _require(summary, "value", "experiment.summary.")
 
-    if summary["contract_id"] != "underperformance_v1":
-        raise ValueError("summary.contract_id must be underperformance_v1")
+    if contract_id != "underperformance_v1":
+        raise ExperimentEventValidationError("contract_id must be underperformance_v1")
+
+    if primary_metric != "precision_underperformed_true":
+        raise ExperimentEventValidationError("primary_metric must be precision_underperformed_true")
+
+    if not isinstance(value, (int, float)):
+        raise ExperimentEventValidationError("experiment.summary.value must be numeric")
 
     return event
