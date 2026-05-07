@@ -8,6 +8,7 @@ from generate_candidates import generate_new_candidates
 from execution_planner import plan_execution
 from execution_proposal import propose_execution
 from ledger_writer import LedgerWriter
+from ledger_event_status import classify_candidate_results
 
 STATE_FILE = Path("agent_state.json")
 LEDGER_FILE = Path("idea_ledger.jsonl")
@@ -62,9 +63,12 @@ def main():
     plan = plan_execution(candidates)
     proposal = propose_execution(plan)
 
+    event_status = classify_candidate_results(results)
+
     ledger_writer.append({
         "timestamp": now(),
         "type": "candidate_validation",
+        "event_status": event_status,
         "results": results,
         "plan": {
             "ready_count": len(plan.get("ready", [])),
