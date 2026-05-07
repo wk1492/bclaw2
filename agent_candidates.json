@@ -1,44 +1,14 @@
 [
   {
-    "id": "candidate-20260505-001",
-    "source_model": "grok",
-    "task_id": "persistent_loop_improvement",
-    "proposed_action": "Update agent_loop.py to automatically generate new candidates when the candidates file is empty or all candidates have status implemented or archived",
-    "rationale": "This removes the manual bootstrap step and makes the system more self-sustaining while keeping human oversight for final approval.",
-    "evidence": "Current loop requires manual creation of agent_candidates.json. The first run needed a special bootstrap file. Automating proposal generation when exhausted would create a true persistent idea pipeline.",
-    "risk_notes": "Risk of low-quality auto-generated candidates; mitigated by strict validation gate and human review before implementation.",
-    "status": "proposed",
-    "priority": 2,
-    "estimated_impact": "high",
-    "dependencies": [],
-    "metadata": {"target_files": ["agent_loop.py", "failure_synthesizer.py"]}
-  },
-  {
-    "id": "candidate-20260505-002",
-    "source_model": "grok",
-    "task_id": "validation_enhancement",
-    "proposed_action": "Add a quality scoring system inside candidate_validator.py and reject candidates below a configured threshold",
-    "rationale": "Raises the overall standard of candidates flowing into the ledger and forces better reasoning from all source models.",
-    "evidence": "Current validation only checks minimum length and presence. Many marginal candidates can still pass. A composite score based on clarity, evidence strength, and risk coverage would improve signal quality.",
-    "risk_notes": "Might be too strict initially and reject good but terse ideas. Can be tuned after collecting data.",
-    "status": "proposed",
-    "priority": 1,
-    "estimated_impact": "high",
-    "dependencies": ["candidate-20260505-001"],
-    "metadata": {"scoring_categories": ["clarity", "evidence", "originality", "actionability"]}
-  },
-  {
-    "id": "candidate-20260505-003",
-    "source_model": "grok",
-    "task_id": "ledger_analytics",
-    "proposed_action": "Create a new script ledger_analytics.py that generates summary reports from idea_ledger.jsonl",
-    "rationale": "Turns the growing ledger from raw log into actionable intelligence for improving the agent system over time.",
-    "evidence": "We already append rich validation and correction data. Without analysis tools, repeated weak rationales and failure patterns stay hidden.",
-    "risk_notes": "Low risk. Purely read-only analytics script.",
-    "status": "proposed",
-    "priority": 3,
-    "estimated_impact": "medium",
-    "dependencies": [],
-    "metadata": {}
+    "candidate_id": "test_underperformance_001",
+    "id": "test_underperformance_001",
+    "source_model": "manual",
+    "task_id": "underperformance_v1",
+    "action": "Run manual underperformance experiment under locked v1 contract",
+    "proposed_action": "Run manual underperformance experiment under locked v1 contract",
+    "rationale": "Test predict_observe_evaluate_log_only loop with deterministic ledger",
+    "evidence": "underperformance_v1 contract committed",
+    "risk_notes": "Synthetic test only",
+    "status": "proposed"
   }
 ]

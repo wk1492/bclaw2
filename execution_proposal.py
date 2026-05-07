@@ -1,17 +1,11 @@
 def propose_execution(plan):
     ready = plan.get("ready", [])
-    if not ready:
+    if ready:
+        c = ready[0]
         return {
-            "ready": False,
-            "reason": "no ready candidates",
+            "ready": True,
+            "candidate_id": c.get("candidate_id"),
+            "task_id": c.get("task_id"),
+            "action": c.get("action"),
         }
-
-    # lowest number = highest priority
-    top = sorted(ready, key=lambda x: x.get("priority", 999))[0]
-
-    return {
-        "ready": True,
-        "candidate_id": top.get("id"),
-        "task_id": top.get("task_id"),
-        "action": top.get("proposed_action"),
-    }
+    return {"ready": False}
