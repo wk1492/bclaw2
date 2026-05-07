@@ -94,7 +94,8 @@ def run_underperformance_experiment(
                 "loop": "predict_observe_evaluate_log_only",
             },
         )
-        append_run(json.loads(canonical_serialize(record)))
+        # Ledger writes are owned by agent_loop.py / LedgerWriter only.
+        # This harness computes deterministic results but does not append directly.
 
     return labeled, summary
 
