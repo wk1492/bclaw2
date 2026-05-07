@@ -22,3 +22,5 @@ message_queue.jsonl
 
 approvals/
 checkpoints/
+execution_ledger.jsonl
+agent_state.json
