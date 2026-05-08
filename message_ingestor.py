@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from datetime import datetime
 from agent_message_schema import AgentMessage
 
 QUEUE_FILE = Path("message_queue.jsonl")
@@ -44,8 +43,7 @@ def classify_messages(messages):
     return classified
 
 def archive_message(msg):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    archive_file = PROCESSED_DIR / f"{ts}_{msg.get('message_id','unknown')}.json"
+    archive_file = PROCESSED_DIR / f"{msg.get('message_id', 'unknown')}.json"
     archive_file.write_text(json.dumps(msg, indent=2))
 
 def main():

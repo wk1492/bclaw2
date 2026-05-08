@@ -1,8 +1,9 @@
-from datetime import datetime
 from pathlib import Path
 import json
 import re
 from typing import Literal
+
+from deterministic_message_id import generate_message_id
 
 MESSAGE_TYPES = Literal[
     "candidate_proposal",
@@ -27,13 +28,19 @@ class AgentMessage(dict):
         payload: dict,
         session_id: str = "bclaw2_default",
         metadata: dict | None = None,
+        message_id: str | None = None,
     ) -> dict:
-        now = datetime.utcnow().isoformat() + "Z"
-        message_id = f"msg_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{agent.lower()}_{msg_type[:4]}"
+        if message_id is None:
+            message_id = generate_message_id(
+                candidate_id=session_id,
+                sender=agent.lower(),
+                recipient="bclaw2",
+                role=msg_type,
+                turn_number=0,
+            )
 
         msg = {
             "message_id": message_id,
-            "timestamp": now,
             "agent": agent.lower(),
             "session_id": session_id,
             "type": msg_type,
@@ -45,13 +52,13 @@ class AgentMessage(dict):
 
     @staticmethod
     def validate(msg: dict) -> None:
-        required = ["message_id", "timestamp", "agent", "session_id", "type", "payload"]
+        required = ["message_id", "agent", "session_id", "type", "payload"]
         for field in required:
             if field not in msg:
                 raise ValueError(f"Missing required field: {field}")
 
-        if not re.match(r"^msg_\d{8}_\d{6}_", msg["message_id"]):
-            raise ValueError("message_id must follow msg_YYYYMMDD_HHMMSS_ format")
+        if not re.match(r"^msg_[0-9a-f]{64}$", msg["message_id"]):
+            raise ValueError("message_id must be msg_<64 hex chars>")
 
         if msg["type"] not in MESSAGE_TYPES.__args__:  # type: ignore
             raise ValueError(f"Unknown message type: {msg['type']}")
