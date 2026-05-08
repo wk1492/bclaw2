@@ -35,7 +35,7 @@ def _run_ollama(model_name: str, prompt: str, host: str = "http://localhost:1143
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        output_text = data.get("response", "")
+        output_text = data.get("response", "")[:4000]
         return {
             "model_name": model_name,
             "prompt_hash": ph,
