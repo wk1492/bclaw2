@@ -124,6 +124,76 @@ def test_canonical_serialization_preserved():
     assert parsed[-1]["role"] == "arbiter"
 
 
+# --- Explicit contract assertions ---
+
+# Root is always index 0
+def test_root_proposal_is_index_zero():
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
+        result = linearize_transcript_topology(list(perm))
+        assert result[0]["message_id"] == proposal["message_id"], \
+            f"Expected proposal at index 0, got {result[0]['role']}"
+
+
+# Every parent appears before every child
+def test_every_parent_before_child():
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
+        result = linearize_transcript_topology(list(perm))
+        ids = _ids(result)
+        for event in result:
+            parent_id = event.get("parent_message_id")
+            if parent_id and parent_id in ids:
+                assert ids.index(parent_id) < ids.index(event["message_id"]), \
+                    f"Parent {parent_id} must precede child {event['message_id']}"
+
+
+# Every referenced message appears before the referencing message
+def test_every_reference_before_referencing_event():
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
+        result = linearize_transcript_topology(list(perm))
+        ids = _ids(result)
+        for event in result:
+            for ref_id in event.get("references", []):
+                if ref_id in ids:
+                    assert ids.index(ref_id) < ids.index(event["message_id"]), \
+                        f"Reference {ref_id} must precede {event['message_id']}"
+
+
+# message_id tie-break when siblings share identical timestamp
+def test_sibling_message_id_tiebreak_when_same_timestamp():
+    proposal = make_transcript_event(
+        run_id=RUN_ID, sender="agent_a", recipient="broadcast",
+        role="proposal", content="Proposal", created_at=TS_A,
+    )
+    # Two critiques at identical timestamp — ordered by message_id
+    crit_x = make_transcript_event(
+        run_id=RUN_ID, sender="agent_x", recipient="agent_a",
+        role="critique", content="Critique X",
+        created_at=TS_B,
+        parent_message_id=proposal["message_id"],
+        references=[proposal["message_id"]],
+    )
+    crit_y = make_transcript_event(
+        run_id=RUN_ID, sender="agent_y", recipient="agent_a",
+        role="critique", content="Critique Y",
+        created_at=TS_B,  # same timestamp as crit_x
+        parent_message_id=proposal["message_id"],
+        references=[proposal["message_id"]],
+    )
+    events = [proposal, crit_x, crit_y]
+    for perm in itertools.permutations(events):
+        result = _ids(linearize_transcript_topology(list(perm)))
+        # Both orderings with same timestamp must agree — tie-broken by message_id lexicographically
+        expected_order = sorted(
+            [crit_x["message_id"], crit_y["message_id"]]
+        )
+        actual_order = [mid for mid in result if mid != proposal["message_id"]]
+        assert actual_order == expected_order, \
+            f"Same-timestamp siblings must be ordered by message_id: {actual_order}"
+
+
 # 7. Replay proof topology unaffected by linearizer existence
 def test_replay_proof_topology_unaffected():
     from transcript_event import make_transcript_event
