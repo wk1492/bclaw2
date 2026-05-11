@@ -1,0 +1,7 @@
+{
+  "contract_id": "underperformance_v1",
+  "predicted_true_count": 3,
+  "primary_metric": "precision_underperformed_true",
+  "total_predictions": 4,
+  "value": 0.6666666666666666
+}
