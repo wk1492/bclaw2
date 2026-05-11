@@ -25,11 +25,20 @@ def validate_candidate(candidate: dict):
         if not candidate.get("source_model"):
             raise ValueError("source_model required for underperformance_v1")
 
+_QUALITY_FIELDS = ("proposed_action", "rationale", "evidence", "risk_notes")
+
+
 def score_candidate(candidate: dict) -> float:
-    # Simple scoring for now
-    score = 1.0
+    score = sum(25.0 for f in _QUALITY_FIELDS if candidate.get(f))
     if candidate.get("source_model") == "manual":
-        score = 0.9
+        score = max(0.0, score - 10.0)
+    return score
+
+
+def require_candidate_quality(candidate: dict, threshold: float = 75.0) -> float:
+    score = score_candidate(candidate)
+    if score < threshold:
+        raise ValueError(f"Candidate quality {score} below threshold {threshold}")
     return score
 
 

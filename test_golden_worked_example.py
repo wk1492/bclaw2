@@ -19,7 +19,7 @@ def _ledger_hash():
 
 
 def test_golden_output():
-    labeled, summary = run_underperformance_experiment(log_to_ledger=False)
+    labeled, summary, _ = run_underperformance_experiment(log_to_ledger=False)
     computed = {
         "contract_id": summary["contract_id"],
         "input_races": TOY_RACES,

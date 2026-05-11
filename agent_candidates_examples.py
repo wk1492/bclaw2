@@ -9,6 +9,8 @@ EXAMPLE_AGENT_CANDIDATE_VALID = {
     "evidence": "current conflict_count verified at 1 for single duplicate-id input in test_pipeline_return_summary",
     "risk_notes": "purely additive field; no existing fields modified; backward compatible",
     "status": "proposed",
+    "candidate_id": "cand_001",
+    "action": "evaluate",
 }
 
 EXAMPLE_AGENT_CANDIDATE_INVALID_MISSING_STATUS = {

@@ -9,7 +9,7 @@ def test_underperformance_experiment_does_not_write_ledger():
     if ledger_path.exists():
         before_bytes = ledger_path.read_bytes()
 
-    labeled, summary = run_underperformance_experiment(log_to_ledger=True)
+    labeled, summary, _ = run_underperformance_experiment(log_to_ledger=True)
 
     after_bytes = b""
     if ledger_path.exists():

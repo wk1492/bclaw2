@@ -28,7 +28,7 @@ def test_ledger_detects_tamper():
 
     event = json.loads(path.read_text().splitlines()[0])
     event["payload"]["x"] = 999
-    path.write_text(json.dumps(event) + "\\n")
+    path.write_text(json.dumps(event) + "\n")
 
     result = verify_ledger(path)
     assert result["ok"] is False

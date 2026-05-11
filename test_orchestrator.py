@@ -381,8 +381,8 @@ def test_pipeline_preference_strength():
 def test_pipeline_candidate_validation():
     r1 = {"id": "a", "value": 1}
     valid_c = {
-        "id": "cand_001", "source_model": "claude-sonnet", "task_id": "t1",
-        "proposed_action": "add field", "rationale": "needed", "evidence": "test",
+        "id": "cand_001", "candidate_id": "cand_001", "source_model": "claude-sonnet", "task_id": "t1",
+        "action": "evaluate", "proposed_action": "add field", "rationale": "needed", "evidence": "test",
         "risk_notes": "none", "status": "proposed",
     }
     invalid_c = {"id": "cand_002", "source_model": "gpt-4o"}  # missing fields
@@ -498,6 +498,7 @@ def test_run_pipeline_is_deterministic_for_fixed_inputs():
     records = [
         {
             "id": "record-001",
+            "value": 1,
             "type": "candidate_validation",
             "candidate_id": "candidate-a",
             "score": 0.82,
@@ -506,6 +507,7 @@ def test_run_pipeline_is_deterministic_for_fixed_inputs():
         },
         {
             "id": "record-002",
+            "value": 2,
             "type": "candidate_validation",
             "candidate_id": "candidate-b",
             "score": 0.61,

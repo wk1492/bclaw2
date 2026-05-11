@@ -40,6 +40,15 @@ TOY_RACES = [
 ]
 
 
+class ExperimentGraph:
+    def __init__(self, summary):
+        self._summary = summary
+
+    def graph_hash(self):
+        import hashlib, json
+        return hashlib.sha256(json.dumps(self._summary, sort_keys=True).encode()).hexdigest()
+
+
 def label_underperformance(record, margin=2):
     expected = record["expected_band"]
     actual = record["actual_finish"]
@@ -97,11 +106,12 @@ def run_underperformance_experiment(
         # Ledger writes are owned by agent_loop.py / LedgerWriter only.
         # This harness computes deterministic results but does not append directly.
 
-    return labeled, summary
+    graph = ExperimentGraph(summary)
+    return labeled, summary, graph
 
 
 def main():
-    _, summary = run_underperformance_experiment()
+    _, summary, _ = run_underperformance_experiment()
     print(json.dumps(summary, indent=2, sort_keys=True))
 
 

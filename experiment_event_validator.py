@@ -49,3 +49,6 @@ def validate_experiment_event(event):
         raise ExperimentEventValidationError("experiment.summary.value must be numeric")
 
     return event
+
+
+validate_experiment_result_event = validate_experiment_event

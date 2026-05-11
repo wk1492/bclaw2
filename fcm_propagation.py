@@ -9,7 +9,7 @@ def compute_next_activations(graph):
 
     next_values = dict(current)
 
-    for node_id in graph.nodes:
+    for node_id in graph.nodes.keys():
         influence = 0.0
         for edge in graph.incoming_edges(node_id):
             influence += current[edge.source] * edge.weight
