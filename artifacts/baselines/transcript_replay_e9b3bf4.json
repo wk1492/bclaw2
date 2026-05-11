@@ -1,0 +1,61 @@
+{
+  "baseline_doc_commit": "980cf81",
+  "exchange": [
+    {
+      "content": "Add causal edge: fatigue -> error_rate",
+      "created_at": "2026-05-10T11:00:00+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_1085c8a9011f08b126ce680e",
+      "metadata": {},
+      "parent_message_id": null,
+      "recipient": "agent_b",
+      "references": [],
+      "role": "proposal",
+      "run_id": "run_replay_proof_001",
+      "sender": "agent_a"
+    },
+    {
+      "content": "Edge weight unsubstantiated; evidence threshold not met",
+      "created_at": "2026-05-10T11:00:01+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_6c9039f0b478ad058cfae721",
+      "metadata": {},
+      "parent_message_id": "tmsg_1085c8a9011f08b126ce680e",
+      "recipient": "agent_a",
+      "references": [
+        "tmsg_1085c8a9011f08b126ce680e"
+      ],
+      "role": "critique",
+      "run_id": "run_replay_proof_001",
+      "sender": "agent_b"
+    },
+    {
+      "content": "Proposal deferred pending evidence. Critique accepted.",
+      "created_at": "2026-05-10T11:00:02+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_6f1a1a0f8671d0d62a3cb98e",
+      "metadata": {},
+      "parent_message_id": "tmsg_6c9039f0b478ad058cfae721",
+      "recipient": "broadcast",
+      "references": [
+        "tmsg_6c9039f0b478ad058cfae721",
+        "tmsg_1085c8a9011f08b126ce680e"
+      ],
+      "role": "arbiter",
+      "run_id": "run_replay_proof_001",
+      "sender": "agent_arbiter"
+    }
+  ],
+  "parent_relationships": {
+    "tmsg_1085c8a9011f08b126ce680e": null,
+    "tmsg_6c9039f0b478ad058cfae721": "tmsg_1085c8a9011f08b126ce680e",
+    "tmsg_6f1a1a0f8671d0d62a3cb98e": "tmsg_6c9039f0b478ad058cfae721"
+  },
+  "replay_order": [
+    "tmsg_1085c8a9011f08b126ce680e",
+    "tmsg_6c9039f0b478ad058cfae721",
+    "tmsg_6f1a1a0f8671d0d62a3cb98e"
+  ],
+  "run_id": "run_replay_proof_001",
+  "source_commit": "e9b3bf4"
+}
