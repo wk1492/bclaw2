@@ -58,7 +58,7 @@ def run_pipeline(records, strict=False, strategy="keep_first", no_duplicates=Fal
                 "conflict_map": conflict_map,
                 "evaluation_input": eval_input,
                 "evaluation_snapshot": {
-                    "input_records": records,
+                    "input_records": list(records),
                     "output_records": result,
                     "evaluation_input": eval_input,
                 },
@@ -193,7 +193,7 @@ def run_pipeline(records, strict=False, strategy="keep_first", no_duplicates=Fal
             "conflict_map": conflict_map,
             "evaluation_input": eval_input,
             "evaluation_snapshot": {
-                "input_records": records,
+                "input_records": list(records),
                 "output_records": result,
                 "evaluation_input": eval_input,
             },
