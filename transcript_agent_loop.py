@@ -1,4 +1,5 @@
 import json
+import tempfile
 from pathlib import Path
 
 from transcript_event import make_transcript_event, canonical_json
@@ -67,3 +68,14 @@ def run_transcript_agent_loop(path) -> dict:
         "hash_chain_ok": verification["ok"],
         "canonical_output": canonical_output,
     }
+
+
+def main():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "transcript_agent_loop.jsonl"
+        summary = run_transcript_agent_loop(path)
+    print(json.dumps(summary, sort_keys=True, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,8 +1,10 @@
 import json
+import subprocess
+import sys
 import pytest
 from pathlib import Path
 
-from transcript_agent_loop import run_transcript_agent_loop
+from transcript_agent_loop import run_transcript_agent_loop, main
 from transcript_ledger import replay_execution_events, verify_mixed_ledger
 from ledger_writer import LedgerWriter
 
@@ -67,3 +69,31 @@ def test_agent_loop_hash_chain_passes(tmp_path):
     result = verify_mixed_ledger(path)
     assert result["failures"] == []
     assert result["count"] == 3
+
+
+def _run_cli():
+    result = subprocess.run(
+        ["uv", "run", "python", "transcript_agent_loop.py"],
+        capture_output=True, text=True, cwd=Path(__file__).parent,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+def test_cli_output_is_valid_json():
+    output = _run_cli()
+    parsed = json.loads(output)
+    assert isinstance(parsed, dict)
+    assert "roles" in parsed
+    assert "replay_order" in parsed
+
+
+def test_cli_output_contains_expected_roles():
+    parsed = json.loads(_run_cli())
+    assert parsed["roles"] == ["proposal", "critique", "arbiter"]
+
+
+def test_cli_repeated_runs_are_byte_identical():
+    out1 = _run_cli()
+    out2 = _run_cli()
+    assert out1 == out2
