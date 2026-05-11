@@ -1,0 +1,73 @@
+{
+  "expected_audit": {
+    "artifact_hash": "3860cc43700ecbae17acf9c8ca26d0534abc62bc927b54ea1bd94434d894070b",
+    "critique_order_hash": "8625f9c0dc2976e2a4175265b320c9bdd00351843964df7cf7a33983786b211d",
+    "fusion_output_hash": "aea76ee55d91b1eee9ea2de5a9f0f6472c01be1f034b0abb5e3307a1d1a00815",
+    "linearized_hash": "0b5ac5f664ae2427f4ebec24b4062f5f57cf4ebc08233fad4e93ef5a6b1259d0",
+    "transcript_hash": "ff036217a2b9ba731de81f663d8b1ed017dd03dac60a76669fcdb204f1987f06"
+  },
+  "run_id": "run_golden_audit_001",
+  "source_commit": "8d93696",
+  "transcript": [
+    {
+      "content": "Add causal edge: workload -> burnout",
+      "created_at": "2026-05-11T10:00:00+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_8ffbc040ce987a5ae22ba866",
+      "metadata": {},
+      "parent_message_id": null,
+      "recipient": "broadcast",
+      "references": [],
+      "role": "proposal",
+      "run_id": "run_golden_audit_001",
+      "sender": "agent_proposer"
+    },
+    {
+      "content": "Workload -> burnout lacks longitudinal support",
+      "created_at": "2026-05-11T10:00:01+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_697d8e8c6316d87684ca86a2",
+      "metadata": {},
+      "parent_message_id": "tmsg_8ffbc040ce987a5ae22ba866",
+      "recipient": "agent_proposer",
+      "references": [
+        "tmsg_8ffbc040ce987a5ae22ba866"
+      ],
+      "role": "critique",
+      "run_id": "run_golden_audit_001",
+      "sender": "agent_critic_a"
+    },
+    {
+      "content": "Alternative pathway is more defensible",
+      "created_at": "2026-05-11T10:00:02+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_8bad2de6e64ce617f37f264d",
+      "metadata": {},
+      "parent_message_id": "tmsg_8ffbc040ce987a5ae22ba866",
+      "recipient": "agent_proposer",
+      "references": [
+        "tmsg_8ffbc040ce987a5ae22ba866"
+      ],
+      "role": "critique",
+      "run_id": "run_golden_audit_001",
+      "sender": "agent_critic_b"
+    },
+    {
+      "content": "Proposal deferred. Both critiques accepted.",
+      "created_at": "2026-05-11T10:00:03+00:00",
+      "event_type": "transcript.message",
+      "message_id": "tmsg_c45ec46ce05a46a3b81e7819",
+      "metadata": {},
+      "parent_message_id": "tmsg_697d8e8c6316d87684ca86a2",
+      "recipient": "broadcast",
+      "references": [
+        "tmsg_697d8e8c6316d87684ca86a2",
+        "tmsg_8bad2de6e64ce617f37f264d",
+        "tmsg_8ffbc040ce987a5ae22ba866"
+      ],
+      "role": "arbiter",
+      "run_id": "run_golden_audit_001",
+      "sender": "agent_arbiter"
+    }
+  ]
+}
