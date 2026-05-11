@@ -8,6 +8,7 @@ from transcript_ledger import (
     replay_transcript_events,
     verify_mixed_ledger,
 )
+from transcript_topology import linearize_transcript_topology
 
 RUN_ID = "run_critique_loop_001"
 TS_A = "2026-05-10T13:00:00+00:00"
@@ -68,7 +69,7 @@ def run_transcript_critique_loop(path) -> dict:
     for event in transcript_events:
         append_transcript_event(event, path)
 
-    thread = replay_transcript_events(path)
+    thread = linearize_transcript_topology(replay_transcript_events(path))
     verification = verify_mixed_ledger(path)
 
     return {
