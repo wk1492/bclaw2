@@ -73,7 +73,11 @@ def verify_ledger(path="execution_ledger.jsonl"):
         if not line.strip():
             continue
 
-        event = json.loads(line)
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            failures.append(f"event {count}: invalid JSON (truncated or corrupt line)")
+            break
 
         expected_previous = current
         if event.get("previous_hash") != expected_previous:
