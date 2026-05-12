@@ -153,8 +153,8 @@ def test_linearization_applied_before_critique_processing(tmp_path):
         references=[critique_a["message_id"], critique_b["message_id"], proposal["message_id"]],
     )
 
-    # Append in reverse order (arbiter first) to simulate unordered input
-    for event in [arbiter, critique_b, critique_a, proposal]:
+    # Append in parent-first order (ledger enforces lineage)
+    for event in [proposal, critique_a, critique_b, arbiter]:
         append_transcript_event(event, path)
 
     raw = replay_transcript_events(path)

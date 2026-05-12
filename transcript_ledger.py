@@ -2,13 +2,23 @@ import json
 from pathlib import Path
 
 from ledger_writer import LedgerWriter, verify_ledger
-from transcript_validator import validate_transcript_event, reconstruct_thread
+from transcript_validator import validate_transcript_event, reconstruct_thread, TranscriptValidationError
 
 TRANSCRIPT_EVENT_TYPE = "transcript.message"
 
 
+def _existing_message_ids(path) -> set:
+    return {r["message_id"] for r in load_ledger_lines(path) if "message_id" in r}
+
+
 def append_transcript_event(event: dict, path) -> dict:
     validate_transcript_event(event)
+    existing = _existing_message_ids(path)
+    if event["message_id"] in existing:
+        raise TranscriptValidationError(f"duplicate message_id: {event['message_id']}")
+    pid = event.get("parent_message_id")
+    if pid is not None and pid not in existing:
+        raise TranscriptValidationError(f"parent_message_id not in ledger: {pid}")
     writer = LedgerWriter(path)
     return writer.append(dict(event))
 

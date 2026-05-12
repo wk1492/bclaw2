@@ -139,7 +139,6 @@ def test_hash_chain_integrity_mixed_ledger(tmp_path):
     path = tmp_path / "ledger.jsonl"
     writer = LedgerWriter(path)
     writer.append({"type": "execution.event", "payload": {"x": 1}})
-    append_transcript_event(_proposal(), path)
     proposal = _proposal()
     critique = _critique(proposal["message_id"])
     append_transcript_event(proposal, path)
@@ -149,5 +148,5 @@ def test_hash_chain_integrity_mixed_ledger(tmp_path):
 
     result = verify_mixed_ledger(path)
     assert result["ok"] is True
-    assert result["count"] == 5
+    assert result["count"] == 4
     assert result["failures"] == []

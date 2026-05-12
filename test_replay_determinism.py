@@ -153,17 +153,17 @@ def test_canonical_output_byte_identical_across_shuffles(tmp_path):
     assert len(set(outputs)) == 1, "Canonical output differed across shuffles"
 
 
-# 7. Replay hash chain valid for all shuffle variants
+# 7. Replay hash chain valid for all sibling shuffle variants
 def test_hash_chain_valid_for_all_shuffle_variants(tmp_path):
     proposal, critique_a, critique_b, arbiter = _make_critique_exchange()
-    events = [proposal, critique_a, critique_b, arbiter]
+    siblings = [critique_a, critique_b]
     rng = random.Random(7)
 
     for i in range(5):
         path = tmp_path / f"ledger_{i}.jsonl"
-        shuffled = events[:]
-        rng.shuffle(shuffled)
-        for event in shuffled:
+        shuffled_siblings = siblings[:]
+        rng.shuffle(shuffled_siblings)
+        for event in [proposal] + shuffled_siblings + [arbiter]:
             append_transcript_event(event, path)
         result = verify_mixed_ledger(path)
         assert result["ok"] is True, f"Hash chain broken on shuffle {i}: {result['failures']}"
