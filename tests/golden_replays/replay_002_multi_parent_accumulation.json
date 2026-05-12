@@ -1,0 +1,73 @@
+{
+  "fixture_id": "replay_002_multi_parent_accumulation",
+  "description": "Two parents accumulate into one target: A--(+0.6)-->C, B--(+0.4)-->C",
+  "applied_graph": {
+    "graph_id": "fcm_golden_002",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "A",
+        "label": "A",
+        "activation": 0.0
+      },
+      {
+        "node_id": "B",
+        "label": "B",
+        "activation": 0.0
+      },
+      {
+        "node_id": "C",
+        "label": "C",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "A",
+        "target": "C",
+        "weight": 0.6,
+        "edge_type": "causal"
+      },
+      {
+        "edge_id": "e2",
+        "source": "B",
+        "target": "C",
+        "weight": 0.4,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_002",
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "initial_activations": {
+    "A": 0.5,
+    "B": 0.8,
+    "C": 0.0
+  },
+  "expected": {
+    "updated_activations": {
+      "A": 0.5,
+      "B": 0.8,
+      "C": 0.6200000000000001
+    },
+    "contribution_log": {
+      "C": [
+        {
+          "source": "A",
+          "weight": 0.6,
+          "activation": 0.5,
+          "contribution": 0.3
+        },
+        {
+          "source": "B",
+          "weight": 0.4,
+          "activation": 0.8,
+          "contribution": 0.32
+        }
+      ]
+    }
+  }
+}

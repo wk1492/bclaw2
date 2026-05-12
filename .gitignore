@@ -11,6 +11,12 @@
 !GIT_SAFETY.md
 !scripts/
 !scripts/*.sh
+!tests/
+!tests/**
+!tests/golden_replays/
+!tests/golden_replays/**
+!docs/
+!docs/**
 
 # Runtime memory / queues
 idea_ledger.jsonl

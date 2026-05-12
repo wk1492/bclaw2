@@ -1,0 +1,60 @@
+{
+  "fixture_id": "replay_004_persistence_disconnected",
+  "description": "Disconnected node C retains activation; A and B connected normally",
+  "applied_graph": {
+    "graph_id": "fcm_golden_004",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "A",
+        "label": "A",
+        "activation": 0.0
+      },
+      {
+        "node_id": "B",
+        "label": "B",
+        "activation": 0.0
+      },
+      {
+        "node_id": "C",
+        "label": "C",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "A",
+        "target": "B",
+        "weight": 0.5,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_004",
+    "node_count": 3,
+    "edge_count": 1
+  },
+  "initial_activations": {
+    "A": 0.7,
+    "B": 0.0,
+    "C": 0.9
+  },
+  "expected": {
+    "updated_activations": {
+      "A": 0.7,
+      "B": 0.35,
+      "C": 0.9
+    },
+    "contribution_log": {
+      "B": [
+        {
+          "source": "A",
+          "weight": 0.5,
+          "activation": 0.7,
+          "contribution": 0.35
+        }
+      ]
+    }
+  }
+}

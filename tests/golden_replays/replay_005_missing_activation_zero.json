@@ -1,0 +1,50 @@
+{
+  "fixture_id": "replay_005_missing_activation_zero",
+  "description": "All initial activations omitted; missing activations default to 0.0",
+  "applied_graph": {
+    "graph_id": "fcm_golden_005",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "A",
+        "label": "A",
+        "activation": 0.0
+      },
+      {
+        "node_id": "B",
+        "label": "B",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "A",
+        "target": "B",
+        "weight": 0.6,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_005",
+    "node_count": 2,
+    "edge_count": 1
+  },
+  "initial_activations": {},
+  "expected": {
+    "updated_activations": {
+      "A": 0.0,
+      "B": 0.0
+    },
+    "contribution_log": {
+      "B": [
+        {
+          "source": "A",
+          "weight": 0.6,
+          "activation": 0.0,
+          "contribution": 0.0
+        }
+      ]
+    }
+  }
+}

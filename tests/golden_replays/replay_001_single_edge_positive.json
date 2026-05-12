@@ -1,0 +1,33 @@
+{
+  "fixture_id": "replay_001_single_edge_positive",
+  "description": "Single positive edge: A --(+0.5)--> B",
+  "applied_graph": {
+    "graph_id": "fcm_golden_001",
+    "status": "applied",
+    "nodes": [
+      {"node_id": "A", "label": "A", "activation": 0.0},
+      {"node_id": "B", "label": "B", "activation": 0.0}
+    ],
+    "edges": [
+      {"edge_id": "e1", "source": "A", "target": "B", "weight": 0.5, "edge_type": "causal"}
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_golden_001",
+    "node_count": 2,
+    "edge_count": 1
+  },
+  "initial_activations": {"A": 1.0, "B": 0.0},
+  "expected": {
+    "updated_activations": {"A": 1.0, "B": 0.5},
+    "contribution_log": {
+      "B": [
+        {
+          "source": "A",
+          "weight": 0.5,
+          "activation": 1.0,
+          "contribution": 0.5
+        }
+      ]
+    }
+  }
+}

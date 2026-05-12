@@ -1,0 +1,75 @@
+{
+  "fixture_id": "replay_007_serialize_deserialize_replay",
+  "description": "JSON round-trip of graph and activations must produce identical preview_id",
+  "applied_graph": {
+    "graph_id": "fcm_golden_007",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "P",
+        "label": "P",
+        "activation": 0.0
+      },
+      {
+        "node_id": "Q",
+        "label": "Q",
+        "activation": 0.0
+      },
+      {
+        "node_id": "R",
+        "label": "R",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "P",
+        "target": "Q",
+        "weight": 0.4,
+        "edge_type": "causal"
+      },
+      {
+        "edge_id": "e2",
+        "source": "P",
+        "target": "R",
+        "weight": 0.6,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_007",
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "initial_activations": {
+    "P": 0.9,
+    "Q": 0.0,
+    "R": 0.0
+  },
+  "expected": {
+    "updated_activations": {
+      "P": 0.9,
+      "Q": 0.36000000000000004,
+      "R": 0.54
+    },
+    "contribution_log": {
+      "Q": [
+        {
+          "source": "P",
+          "weight": 0.4,
+          "activation": 0.9,
+          "contribution": 0.36
+        }
+      ],
+      "R": [
+        {
+          "source": "P",
+          "weight": 0.6,
+          "activation": 0.9,
+          "contribution": 0.54
+        }
+      ]
+    }
+  }
+}

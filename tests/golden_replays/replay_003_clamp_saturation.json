@@ -1,0 +1,73 @@
+{
+  "fixture_id": "replay_003_clamp_saturation",
+  "description": "Accumulated inputs exceed 1.0 and are clamped: A--(+0.8)-->C, B--(+0.9)-->C",
+  "applied_graph": {
+    "graph_id": "fcm_golden_003",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "A",
+        "label": "A",
+        "activation": 0.0
+      },
+      {
+        "node_id": "B",
+        "label": "B",
+        "activation": 0.0
+      },
+      {
+        "node_id": "C",
+        "label": "C",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "A",
+        "target": "C",
+        "weight": 0.8,
+        "edge_type": "causal"
+      },
+      {
+        "edge_id": "e2",
+        "source": "B",
+        "target": "C",
+        "weight": 0.9,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_003",
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "initial_activations": {
+    "A": 1.0,
+    "B": 1.0,
+    "C": 0.0
+  },
+  "expected": {
+    "updated_activations": {
+      "A": 1.0,
+      "B": 1.0,
+      "C": 1.0
+    },
+    "contribution_log": {
+      "C": [
+        {
+          "source": "A",
+          "weight": 0.8,
+          "activation": 1.0,
+          "contribution": 0.8
+        },
+        {
+          "source": "B",
+          "weight": 0.9,
+          "activation": 1.0,
+          "contribution": 0.9
+        }
+      ]
+    }
+  }
+}

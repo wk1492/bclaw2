@@ -1,0 +1,114 @@
+{
+  "fixture_id": "replay_006_ordering_invariance",
+  "description": "Edge insertion order must not affect activations, contributions, or preview_id",
+  "applied_graph": {
+    "graph_id": "fcm_golden_006",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "X",
+        "label": "X",
+        "activation": 0.0
+      },
+      {
+        "node_id": "Y",
+        "label": "Y",
+        "activation": 0.0
+      },
+      {
+        "node_id": "Z",
+        "label": "Z",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e1",
+        "source": "X",
+        "target": "Z",
+        "weight": 0.3,
+        "edge_type": "causal"
+      },
+      {
+        "edge_id": "e2",
+        "source": "Y",
+        "target": "Z",
+        "weight": 0.7,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_006",
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "initial_activations": {
+    "X": 0.5,
+    "Y": 0.4,
+    "Z": 0.0
+  },
+  "expected": {
+    "updated_activations": {
+      "X": 0.5,
+      "Y": 0.4,
+      "Z": 0.42999999999999994
+    },
+    "contribution_log": {
+      "Z": [
+        {
+          "source": "X",
+          "weight": 0.3,
+          "activation": 0.5,
+          "contribution": 0.15
+        },
+        {
+          "source": "Y",
+          "weight": 0.7,
+          "activation": 0.4,
+          "contribution": 0.28
+        }
+      ]
+    }
+  },
+  "applied_graph_alt": {
+    "graph_id": "fcm_golden_006",
+    "status": "applied",
+    "nodes": [
+      {
+        "node_id": "X",
+        "label": "X",
+        "activation": 0.0
+      },
+      {
+        "node_id": "Y",
+        "label": "Y",
+        "activation": 0.0
+      },
+      {
+        "node_id": "Z",
+        "label": "Z",
+        "activation": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "e2",
+        "source": "Y",
+        "target": "Z",
+        "weight": 0.7,
+        "edge_type": "causal"
+      },
+      {
+        "edge_id": "e1",
+        "source": "X",
+        "target": "Z",
+        "weight": 0.3,
+        "edge_type": "causal"
+      }
+    ],
+    "applied_plan_ids": [],
+    "source_snapshot_id": "snap_fcm_golden_006",
+    "node_count": 3,
+    "edge_count": 2
+  }
+}
