@@ -12,6 +12,8 @@ Tests: 161 passed, 0 failed
 - Prefer `uv tool run pytest -q` for this repo (system `python3` resolves to 3.14 without pytest).
 - Do not rerun completed tasks. Verify current HEAD and git status instead.
 - Never run tests or commands from `~`. Always `cd ~/Downloads/bclaw2` first.
+- **Run `./doctor.sh --strict` before any mutation, schema change, orchestration change, runner/transcript wiring, or FCM/graph work.**
+- **If strict doctor fails repo identity, stop immediately and `cd ~/Downloads/bclaw2`.**
 
 ## Repo state at this baseline
 
