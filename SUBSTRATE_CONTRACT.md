@@ -73,7 +73,26 @@ and their values are not altered.
 
 ---
 
-## 5. Preserved Invariants
+## 5. Compatibility Guarantees
+
+The following changes require a new `SUBSTRATE_VERSION`. Any implementation that
+introduces one of these changes without incrementing the version number is in
+violation of this contract:
+
+- changing canonical JSON serialization
+- changing hash algorithm
+- changing line termination requirements
+- changing replay ordering semantics
+- changing append validation semantics
+- changing rolling hash derivation
+- changing meaning of existing error codes
+
+Additive changes — new error codes, new optional result keys, new wrapper functions —
+do not require a version increment provided they do not alter any of the above.
+
+---
+
+## 6. Preserved Invariants
 
 - `SUBSTRATE_VERSION` is an integer. Version 1 freezes this document.
 - No hash input is changed by this contract layer.
