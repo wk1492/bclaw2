@@ -46,7 +46,7 @@ class ExperimentGraph:
 
     def graph_hash(self):
         import hashlib, json
-        return hashlib.sha256(json.dumps(self._summary, sort_keys=True).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(self._summary, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def label_underperformance(record, margin=2):
