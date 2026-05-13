@@ -60,7 +60,7 @@ def test_truncated_final_line_detected():
     assert result["ok"] is False
     assert len(result["failures"]) > 0
     msg = result["failures"][0]
-    assert "invalid JSON" in msg or "truncat" in msg
+    assert any(kw in msg for kw in ("invalid JSON", "truncat", "newline", "terminator"))
 
 
 # 2. partial append interruption detection

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_COUNT=316
+EXPECTED_COUNT=323
 PYTEST="uv tool run pytest"
 
 # Verify environment
@@ -15,7 +15,7 @@ if [ ! -f "transcript_ledger.py" ]; then
 fi
 
 # Required test files
-for f in test_transcript_hardening.py test_transcript_append_hardening.py; do
+for f in test_transcript_hardening.py test_transcript_append_hardening.py test_crash_consistency_hardening.py; do
     if [ ! -f "$f" ]; then
         echo "FAIL: missing required file: $f"
         exit 1
@@ -24,7 +24,7 @@ done
 
 # Stage 1: hardening suites first
 echo "STAGE 1 hardening"
-$PYTEST test_transcript_hardening.py test_transcript_append_hardening.py \
+$PYTEST test_transcript_hardening.py test_transcript_append_hardening.py test_crash_consistency_hardening.py \
     -q --tb=short --no-header --color=no -p no:cacheprovider
 echo "STAGE 1 ok"
 

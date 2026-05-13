@@ -65,11 +65,20 @@ def verify_ledger(path="execution_ledger.jsonl"):
     if not path.exists():
         return {"ok": True, "count": 0, "failures": []}
 
+    raw = path.read_bytes()
+    if raw and not raw.endswith(b"\n"):
+        return {
+            "ok": False,
+            "count": 0,
+            "failures": ["ledger missing final newline terminator"],
+            "last_rolling_hash": GENESIS_HASH,
+        }
+
     current = GENESIS_HASH
     failures = []
     count = 0
 
-    for count, line in enumerate(path.read_text().splitlines(), start=1):
+    for count, line in enumerate(raw.decode("utf-8").splitlines(), start=1):
         if not line.strip():
             continue
 
