@@ -102,3 +102,40 @@ do not require a version increment provided they do not alter any of the above.
 - No baseline artifact is mutated.
 - All error message strings from `transcript_validator`, `transcript_ledger`, and
   `ledger_writer` remain character-for-character identical.
+
+---
+
+## 7. Workspace Identity as Substrate Precondition
+
+### 7.1 Failure mode: coherent-output-on-wrong-lineage
+
+**Definition:** Work produced from the wrong repository, branch, or architectural
+lineage that is internally coherent but semantically irrelevant or contaminating to
+the BCLAW2 substrate.
+
+**Why it is dangerous:**
+
+- Diffs may look valid and pass code review.
+- Tests may pass — but in a different repo with a different schema or orchestrator.
+- Commits may be coherent and well-formed but address the wrong codebase.
+- Old schemas, orchestrators, or ledger formats from prior projects can silently
+  contaminate BCLAW2 data structures, replay semantics, or hash chains.
+- The failure is invisible until a frozen baseline hash diverges or a replay
+  produces an unexpected result.
+
+**Prevention:**
+
+- Run `./doctor.sh --strict` before any mutation, schema change, orchestration
+  change, runner/transcript wiring, or FCM/graph work.
+- Verify repo root is exactly `~/Downloads/bclaw2`.
+- Verify current branch is `main`.
+- Verify required substrate files are present:
+  `transcript_event.py`, `transcript_ledger.py`, `transcript_topology.py`,
+  `model_runner.py`, `SUBSTRATE_CONTRACT.md`.
+- Stop immediately on identity failure. Do not proceed. Run `cd ~/Downloads/bclaw2`
+  and re-run `./doctor.sh --strict`.
+
+**Workspace identity is a substrate precondition, not a convenience check.**
+A substrate version number is only meaningful relative to the correct lineage.
+Work committed from the wrong lineage cannot be reconciled with frozen baseline
+artifacts without re-deriving and re-verifying all hashes.

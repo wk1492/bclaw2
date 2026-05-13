@@ -15,6 +15,27 @@ Tests: 161 passed, 0 failed
 - **Run `./doctor.sh --strict` before any mutation, schema change, orchestration change, runner/transcript wiring, or FCM/graph work.**
 - **If strict doctor fails repo identity, stop immediately and `cd ~/Downloads/bclaw2`.**
 
+## Failure mode: coherent-output-on-wrong-lineage
+
+**Definition:** Work produced from the wrong repository, branch, or architectural
+lineage that is internally coherent but semantically irrelevant or contaminating
+to the BCLAW2 substrate.
+
+**Why it is dangerous:**
+- Diffs may look valid and tests may pass — but in the wrong repo with a different schema.
+- Commits may be coherent but address the wrong codebase entirely.
+- Old schemas or orchestrators from prior projects can silently contaminate BCLAW2 data structures.
+- The failure is invisible until a frozen baseline hash diverges or replay produces unexpected output.
+
+**Required prevention:**
+- Run `./doctor.sh --strict` before mutation work.
+- Verify repo root is exactly `~/Downloads/bclaw2`.
+- Verify branch is `main`.
+- Verify required substrate files exist (see doctor.sh --strict).
+- Stop immediately on identity failure. Do not continue. Re-run from the correct location.
+
+**Workspace identity is a substrate precondition, not a convenience check.**
+
 ## Repo state at this baseline
 
 | Item | Value |
