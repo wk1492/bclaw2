@@ -17,6 +17,8 @@
 !tests/golden_replays/**
 !docs/
 !docs/**
+!artifacts/
+!artifacts/**
 
 # Runtime memory / queues
 idea_ledger.jsonl

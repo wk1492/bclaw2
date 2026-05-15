@@ -1,0 +1,20 @@
+{
+  "artifact_id": "2ca4ece1671ae1299c8e1152fca9d1700eb9da140213a21b1ede1e2816d36608",
+  "block_count": 0,
+  "error_count": 0,
+  "results": [
+    {
+      "blocks": [],
+      "message_id": "tmsg_1232f25b993719b53ae6d18e",
+      "ok": true,
+      "validated": []
+    },
+    {
+      "blocks": [],
+      "message_id": "tmsg_cec37e0cbf921ae5d3efe762",
+      "ok": true,
+      "validated": []
+    }
+  ],
+  "version": 1
+}
