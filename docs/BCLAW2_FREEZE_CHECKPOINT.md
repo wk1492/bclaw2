@@ -1,7 +1,8 @@
 # BCLAW2 Freeze Checkpoint
 
 **Date:** 2026-05-14
-**Freeze HEAD:** f13ef16
+**Freeze HEAD:** a4f0f46
+**Git tag:** bclaw3-phase1d-freeze
 **Branch:** main
 **Tests passing:** 545
 **Worktree at freeze:** clean
@@ -21,6 +22,8 @@ or baseline artifacts.
 ## 2. Canonical Commit Sequence
 
 ```
+a4f0f46 Add Phase 1C signal extraction, rubric contracts, and Phase 1D evaluation execution spec  ← TAG: bclaw3-phase1d-freeze
+2dadad0 Add BCLAW2 freeze checkpoint and Phase 1B lineage plan
 f13ef16 Add deterministic epistemic_diff with graph snapshot integration
 0aaba72 Add static topology contract
 1fd8a10 Add deterministic epistemic graph query helpers

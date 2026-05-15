@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_COUNT=323
+EXPECTED_COUNT=545
 PYTEST="uv tool run pytest"
 
 # Verify environment
