@@ -106,6 +106,19 @@ def get_claim_neighborhood(graph: dict, claim_id: str, depth: int = 1) -> dict:
     }
 
 
+def claim_status_snapshot(graph: dict) -> dict:
+    """
+    Extract a flat {claim_id: epistemic_status} snapshot from a built graph.
+
+    Returns a plain dict in sorted claim_id order. Values are str or None.
+    Pure function. Graph is never mutated. Safe to diff with diff_epistemic_state.
+    """
+    return {
+        n.claim_id: n.epistemic_status
+        for n in sorted(graph.get("nodes", ()), key=lambda n: n.claim_id)
+    }
+
+
 def summarize_graph(graph: dict) -> dict:
     """
     JSON-safe summary of an epistemic graph.
