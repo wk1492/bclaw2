@@ -49,12 +49,22 @@ def run_agent_turn(
     created_at: str = None,
     parent_message_id: str = None,
     references: list = None,
+    model_fn=None,
+    context_fn=None,
 ) -> dict:
     """
-    Execute one agent turn: generate a response via fake_model, wrap it as a
-    validated transcript.message event, append to ledger. Returns the new event.
+    Execute one agent turn: generate a response, wrap it as a validated
+    transcript.message event, append to ledger. Returns the new event.
+
+    model_fn   — callable(context: list) -> str. Default: fake_model.
+                 Inject a live or deterministic function here. The ledger
+                 boundary is preserved regardless: content goes through
+                 make_transcript_event + append_transcript_event unchanged.
+    context_fn — callable(thread: list) -> list. Transforms raw transcript
+                 events before passing to model_fn. Default: identity.
     """
-    content = fake_model(thread)
+    ctx = context_fn(thread) if context_fn is not None else thread
+    content = model_fn(ctx) if model_fn is not None else fake_model(ctx)
     if created_at is None:
         epoch = 1747000000 + int(_sha256(f"{agent_id}:{content}"), 16) % 86400
         created_at = datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
@@ -73,10 +83,13 @@ def run_agent_turn(
     return event
 
 
-def run_two_agent_handoff(ledger_path) -> dict:
+def run_two_agent_handoff(ledger_path, *, model_fn=None, context_fn=None) -> dict:
     """
     Two-agent handoff: Agent A proposes from empty context; Agent B critiques
     using only Agent A's ledger-visible message. The ledger is the sole channel.
+
+    model_fn / context_fn are forwarded to run_agent_turn unchanged.
+    Omit both to use the deterministic fake_model (default for all tests).
 
     Returns:
         event_a, event_b, replay_order (list of message_ids), chain_ok (bool)
@@ -88,6 +101,7 @@ def run_two_agent_handoff(ledger_path) -> dict:
     event_a = run_agent_turn(
         "agent_researcher", "proposal", [], ledger_path,
         run_id=RUN_ID, created_at=TS_A,
+        model_fn=model_fn, context_fn=context_fn,
     )
 
     thread = replay_transcript_events(ledger_path)
@@ -97,6 +111,7 @@ def run_two_agent_handoff(ledger_path) -> dict:
         run_id=RUN_ID, created_at=TS_B,
         parent_message_id=event_a["message_id"],
         references=[event_a["message_id"]],
+        model_fn=model_fn, context_fn=context_fn,
     )
 
     final_thread = replay_transcript_events(ledger_path)

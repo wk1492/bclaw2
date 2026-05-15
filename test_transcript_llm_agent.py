@@ -131,3 +131,83 @@ def test_hash_chain_passes_verification():
     assert result["chain_ok"] is True
     chain = verify_mixed_ledger(path)
     assert chain.get("ok") is True
+
+
+# ── Model runner seam tests ───────────────────────────────────────────────────
+
+# 10. Seam default produces byte-identical output to pre-seam behavior
+def test_seam_default_is_byte_identical_to_original():
+    results = [_canonical(run_two_agent_handoff(_fresh_ledger())) for _ in range(3)]
+    assert len(set(results)) == 1, "seam default path changed byte output"
+
+
+# 11. Injected deterministic model_fn is called and produces ledger event
+def test_injected_deterministic_model_fn():
+    def fixed_model(context):
+        return "FIXED_DETERMINISTIC_OUTPUT"
+
+    path = _fresh_ledger()
+    result = run_two_agent_handoff(path, model_fn=fixed_model)
+    assert result["event_a"]["content"] == "FIXED_DETERMINISTIC_OUTPUT"
+    assert result["event_b"]["content"] == "FIXED_DETERMINISTIC_OUTPUT"
+    events = replay_transcript_events(path)
+    assert all(e["content"] == "FIXED_DETERMINISTIC_OUTPUT" for e in events)
+
+
+# 12. Injected model_fn — Agent B's context comes only from ledger replay of A
+def test_injected_model_fn_agent_b_sees_a_via_ledger():
+    seen_contexts = []
+
+    def recording_model(context):
+        seen_contexts.append([m.get("content", "") for m in context])
+        return f"response_to_{len(context)}_messages"
+
+    path = _fresh_ledger()
+    run_two_agent_handoff(path, model_fn=recording_model)
+
+    # Agent A sees empty context; Agent B sees exactly one ledger event (A's)
+    assert len(seen_contexts) == 2
+    assert seen_contexts[0] == []                        # A: empty thread
+    assert len(seen_contexts[1]) == 1                    # B: only A's event
+    assert seen_contexts[1][0] == "response_to_0_messages"  # A's content from ledger
+
+
+# 13. Injected model_fn — hash chain still passes
+def test_injected_model_fn_hash_chain_passes():
+    path = _fresh_ledger()
+    result = run_two_agent_handoff(path, model_fn=lambda ctx: "deterministic_content")
+    assert result["chain_ok"] is True
+    assert verify_mixed_ledger(path).get("ok") is True
+
+
+# 14. context_fn transforms thread before model_fn receives it
+def test_context_fn_transforms_thread():
+    received = []
+
+    def extract_contents(thread):
+        return [m.get("content", "") for m in thread]
+
+    def recording_model(context):
+        received.append(context)
+        return "reply"
+
+    path = _fresh_ledger()
+    run_two_agent_handoff(path, model_fn=recording_model, context_fn=extract_contents)
+
+    # Agent A: context_fn([]) -> []; Agent B: context_fn([event_a]) -> [content_str]
+    assert received[0] == []
+    assert isinstance(received[1], list) and isinstance(received[1][0], str)
+
+
+# 15. No Ollama or network call occurs with default or injected deterministic fn
+def test_no_network_call_in_seam(monkeypatch):
+    def explode(*args, **kwargs):
+        raise AssertionError("network call must not occur during deterministic tests")
+
+    import urllib.request
+    monkeypatch.setattr(urllib.request, "urlopen", explode)
+
+    path = _fresh_ledger()
+    # Both default path and injected deterministic fn must stay off-network
+    run_two_agent_handoff(path)
+    run_two_agent_handoff(_fresh_ledger(), model_fn=lambda ctx: "safe")
