@@ -2,7 +2,11 @@ import itertools
 import json
 
 from transcript_event import make_transcript_event
-from transcript_topology import linearize_transcript_topology
+from transcript_topology import (
+    TRANSCRIPT_EVENT_TYPE,
+    compute_transcript_linearization,
+    linearize_transcript_topology,
+)
 
 RUN_ID = "run_topology_001"
 TS_A = "2026-05-10T14:00:00+00:00"
@@ -192,6 +196,83 @@ def test_sibling_message_id_tiebreak_when_same_timestamp():
         actual_order = [mid for mid in result if mid != proposal["message_id"]]
         assert actual_order == expected_order, \
             f"Same-timestamp siblings must be ordered by message_id: {actual_order}"
+
+
+# 5. Orphan reference is reported, not inferred
+def test_orphan_parent_reported_not_inferred():
+    """
+    An event whose parent_message_id does not exist in the event set is an orphan.
+    The orphaned event is listed in result["orphaned"]; no phantom parent node is created.
+    The orphan still appears in result["order"] (placed by timestamp tie-break, not suppressed).
+    """
+    proposal = make_transcript_event(
+        run_id=RUN_ID, sender="agent_a", recipient="broadcast",
+        role="proposal", content="Proposal", created_at=TS_A,
+    )
+    dangling_parent = "tmsg_" + "0" * 24  # valid-looking but absent from event set
+    orphan_critique = make_transcript_event(
+        run_id=RUN_ID, sender="agent_b", recipient="agent_a",
+        role="critique", content="Critique with missing parent",
+        created_at=TS_B,
+        parent_message_id=dangling_parent,
+    )
+
+    result = compute_transcript_linearization([proposal, orphan_critique])
+
+    # Orphan event reported in orphaned list — its parent is missing
+    assert orphan_critique["message_id"] in result["orphaned"], (
+        "Event with nonexistent parent_message_id must appear in orphaned list"
+    )
+    # Missing parent NOT inferred — node_count reflects real events only
+    assert result["node_count"] == 2
+    # Both real events appear in order
+    assert len(result["order"]) == 2
+    assert proposal["message_id"] in result["order"]
+    assert orphan_critique["message_id"] in result["order"]
+    # Phantom node is NOT created for the dangling parent
+    assert dangling_parent not in result["order"]
+    # Topology hash is a 64-char hex string (stable)
+    assert len(result["topology_hash"]) == 64
+
+
+# 8. Non-transcript execution events are ignored
+def test_non_transcript_events_are_ignored():
+    """
+    Execution ledger events and other records with event_type != 'transcript.message'
+    are silently excluded from linearization. They do not appear in the output,
+    do not affect ordering, and do not change the topology of transcript events.
+    """
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+
+    # A typical execution ledger record — no event_type field, uses 'type'
+    execution_record = {
+        "type": "candidate_validation",
+        "timestamp": TS_A,
+        "input": {"x": 1},
+        "output": {"y": 2},
+        "metadata": {},
+    }
+    # A record with an explicit non-transcript event_type
+    system_record = {
+        "event_type": "system.heartbeat",
+        "message_id": "hb_001",
+        "timestamp": TS_A,
+    }
+
+    mixed = [proposal, execution_record, critique_a, system_record, critique_b, arbiter]
+    transcript_only = [proposal, critique_a, critique_b, arbiter]
+
+    result_mixed = linearize_transcript_topology(mixed)
+    result_clean = linearize_transcript_topology(transcript_only)
+
+    # Output is identical with or without non-transcript events in input
+    assert _ids(result_mixed) == _ids(result_clean), (
+        "Non-transcript events must not alter linearization output"
+    )
+    # Exactly 4 transcript events, not 6
+    assert len(result_mixed) == 4
+    # All output events are transcript.message
+    assert all(e.get("event_type") == TRANSCRIPT_EVENT_TYPE for e in result_mixed)
 
 
 # 7. Replay proof topology unaffected by linearizer existence

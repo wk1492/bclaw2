@@ -1,6 +1,8 @@
 import hashlib
 import json
 
+TRANSCRIPT_EVENT_TYPE = "transcript.message"
+
 
 class TranscriptLinearizationError(ValueError):
     pass
@@ -14,6 +16,11 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _transcript_only(events: list) -> list:
+    """Return only transcript.message events; silently drop all others."""
+    return [e for e in events if e.get("event_type") == TRANSCRIPT_EVENT_TYPE]
+
+
 def linearize_transcript_topology(events: list) -> list:
     """
     Deterministic linearization of a transcript event graph.
@@ -24,7 +31,10 @@ def linearize_transcript_topology(events: list) -> list:
     3. Arbiter/synthesis nodes after all referenced events (references dependency).
     4. Siblings sorted by (created_at, message_id) as deterministic tie-break.
     5. Disconnected nodes handled by same tie-break.
+
+    Non-transcript events (event_type != 'transcript.message') are silently ignored.
     """
+    events = _transcript_only(events)
     if not events:
         return []
 
@@ -73,6 +83,7 @@ def compute_transcript_linearization(events: list) -> dict:
         topology_hash    — sha256 of canonical(order)
         linearization_id — "tlin_" + sha256[:24] of canonical({order, orphaned})
     """
+    events = _transcript_only(events)
     if not events:
         empty: list = []
         return {
