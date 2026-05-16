@@ -19,6 +19,8 @@
 !docs/**
 !artifacts/
 !artifacts/**
+!projects/
+!projects/**
 
 # Runtime memory / queues
 idea_ledger.jsonl
