@@ -1,0 +1,67 @@
+{
+  "session_id": "TASK_28_EXAMPLE_SESSION",
+  "max_moves": 10,
+  "participants": [
+    "GPT",
+    "Grok",
+    "Claude/Remy",
+    "Copilot",
+    "Dia"
+  ],
+  "active_objective": "Define or execute the explicitly scoped session objective.",
+  "allowed_files": [],
+  "forbidden_files": [],
+  "invariant_attestations_required": [
+    "runtime_changes_none",
+    "replay_guarantee_preserved",
+    "ledger_mutation_none",
+    "live_call_status_none",
+    "authority_boundary_preserved"
+  ],
+  "stop_conditions": [
+    "max_moves_reached",
+    "objective_complete",
+    "DRIFT_RISK_requires_human_rescope",
+    "destructive_or_permission_sensitive_action_requires_human_approval",
+    "blocked_unresolved_item"
+  ],
+  "one_command_rule": {
+    "standalone_1": "continue_active_scoped_task_or_session_only_if_one_exists",
+    "no_active_task_response": "NO_ACTIVE_TASK"
+  },
+  "ten_move_report_requirement": {
+    "required_after_every_moves": 10,
+    "must_report": [
+      "progress",
+      "tests",
+      "commits",
+      "drift_risks",
+      "unresolved_items",
+      "recommended_next_moves"
+    ]
+  },
+  "moves": [
+    {
+      "move_number": 1,
+      "acting_agent": "GPT",
+      "input_context_hash": "sha256:<context-hash>",
+      "transcript_message_ids_consumed": [
+        "msg_<input>"
+      ],
+      "output_transcript_message_ids": [
+        "msg_<output>"
+      ],
+      "files_changed": [],
+      "tests_run": [],
+      "invariant_attestations": {
+        "runtime_changes_none": true,
+        "replay_guarantee_preserved": true,
+        "ledger_mutation_none": true,
+        "live_call_status_none": true,
+        "authority_boundary_preserved": true
+      },
+      "drift_status": "IN_SCOPE",
+      "unresolved_items": []
+    }
+  ]
+}
