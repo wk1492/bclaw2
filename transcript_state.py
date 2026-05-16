@@ -29,16 +29,17 @@ def reduce_transcript_state(events: list) -> dict:
 
     if not events:
         return {
-            "message_count":       0,
-            "proposal_count":      0,
-            "critique_count":      0,
-            "arbiter_count":       0,
-            "participants":        [],
-            "root_messages":       [],
-            "unresolved_messages": [],
-            "latest_role":         None,
-            "latest_message_id":   None,
-            "topology_edges":      [],
+            "message_count":        0,
+            "proposal_count":       0,
+            "critique_count":       0,
+            "arbiter_count":        0,
+            "participants":         [],
+            "root_message_ids":     [],
+            "unresolved_message_ids": [],
+            "latest_role":          None,
+            "latest_message_id":    None,
+            "topology_edges":       [],
+            "topology_order":       [],
         }
 
     by_id = {e["message_id"]: e for e in events}
@@ -49,7 +50,7 @@ def reduce_transcript_state(events: list) -> dict:
 
     participants = sorted({e.get("sender", "") for e in events if e.get("sender")})
 
-    root_messages = sorted(
+    root_message_ids = sorted(
         e["message_id"] for e in events
         if not e.get("parent_message_id") or e["parent_message_id"] not in by_id
     )
@@ -57,12 +58,13 @@ def reduce_transcript_state(events: list) -> dict:
     arbiter_refs: set = set()
     for arb in arbiters:
         arbiter_refs.update(arb.get("references", []))
-    unresolved_messages = sorted(
+    unresolved_message_ids = sorted(
         c["message_id"] for c in critiques if c["message_id"] not in arbiter_refs
     )
 
     linearized = linearize_transcript_topology(events)
     latest = linearized[-1]
+    topology_order = [e["message_id"] for e in linearized]
 
     edge_set: set = set()
     for e in events:
@@ -76,14 +78,15 @@ def reduce_transcript_state(events: list) -> dict:
     topology_edges = sorted([list(pair) for pair in edge_set])
 
     return {
-        "message_count":       len(events),
-        "proposal_count":      len(proposals),
-        "critique_count":      len(critiques),
-        "arbiter_count":       len(arbiters),
-        "participants":        participants,
-        "root_messages":       root_messages,
-        "unresolved_messages": unresolved_messages,
-        "latest_role":         latest["role"],
-        "latest_message_id":   latest["message_id"],
-        "topology_edges":      topology_edges,
+        "message_count":          len(events),
+        "proposal_count":         len(proposals),
+        "critique_count":         len(critiques),
+        "arbiter_count":          len(arbiters),
+        "participants":           participants,
+        "root_message_ids":       root_message_ids,
+        "unresolved_message_ids": unresolved_message_ids,
+        "latest_role":            latest["role"],
+        "latest_message_id":      latest["message_id"],
+        "topology_edges":         topology_edges,
+        "topology_order":         topology_order,
     }
