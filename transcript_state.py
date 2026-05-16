@@ -55,11 +55,12 @@ def reduce_transcript_state(events: list) -> dict:
         if not e.get("parent_message_id") or e["parent_message_id"] not in by_id
     )
 
-    arbiter_refs: set = set()
-    for arb in arbiters:
-        arbiter_refs.update(arb.get("references", []))
+    # Structural only: events with any edge (parent or reference) pointing outside
+    # the event set. No semantic judgment about resolution, acceptance, or completion.
     unresolved_message_ids = sorted(
-        c["message_id"] for c in critiques if c["message_id"] not in arbiter_refs
+        e["message_id"] for e in events
+        if (e.get("parent_message_id") and e["parent_message_id"] not in by_id)
+        or any(ref not in by_id for ref in e.get("references", []))
     )
 
     linearized = linearize_transcript_topology(events)

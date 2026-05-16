@@ -73,6 +73,7 @@ def test_critique_loop_derives_expected_counts():
     assert state["arbiter_count"]  == 1
     assert state["latest_role"]    == "arbiter"
     assert state["latest_message_id"]      == arbiter["message_id"]
+    # Complete graph: no dangling edges → structurally empty
     assert state["unresolved_message_ids"] == []
     assert state["root_message_ids"]       == [proposal["message_id"]]
     # topology_order must be the full linearized sequence ending at arbiter
@@ -80,6 +81,26 @@ def test_critique_loop_derives_expected_counts():
     assert len(order) == 4
     assert order[0]   == proposal["message_id"]
     assert order[-1]  == arbiter["message_id"]
+
+
+# 2b. unresolved_message_ids is structural (dangling edges), not semantic
+def test_unresolved_message_ids_is_structural_not_semantic():
+    proposal, critique_a, critique_b, arbiter = _make_exchange()
+
+    # Orphan: critique whose parent_message_id is absent from the event set
+    orphan = make_transcript_event(
+        run_id=_RUN, sender="agent_d", recipient="agent_a",
+        role="critique", content="Orphan critique: parent not in set",
+        created_at="2026-05-15T15:00:05+00:00",
+        parent_message_id="tmsg_" + "0" * 24,  # valid-looking but absent
+    )
+    state = reduce_transcript_state([proposal, critique_a, critique_b, arbiter, orphan])
+
+    # Orphan appears in unresolved — its declared parent edge is dangling
+    assert orphan["message_id"] in state["unresolved_message_ids"]
+    # The four complete-graph events do NOT appear — all their edges resolve
+    for ev in (proposal, critique_a, critique_b, arbiter):
+        assert ev["message_id"] not in state["unresolved_message_ids"]
 
 
 # 3. Participants sorted deterministically regardless of input order
