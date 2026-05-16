@@ -21,6 +21,8 @@
 !artifacts/**
 !projects/
 !projects/**
+!scheduler/
+!scheduler/**
 
 # Runtime memory / queues
 idea_ledger.jsonl
