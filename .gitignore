@@ -36,3 +36,4 @@ approvals/
 checkpoints/
 execution_ledger.jsonl
 agent_state.json
+demo_transcript.jsonl
