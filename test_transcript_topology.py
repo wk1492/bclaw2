@@ -74,8 +74,9 @@ def test_sibling_tie_breaking_deterministic():
     r2 = _ids(linearize_transcript_topology(list(reversed(events))))
     assert r1 == r2
 
-    # Siblings ordered by (created_at, message_id): critique_a (TS_B) before critique_b (TS_C)
-    assert r1.index(critique_a["message_id"]) < r1.index(critique_b["message_id"])
+    # Siblings ordered by canonical message_id bytes (no timestamp dependence)
+    first, second = sorted([critique_a["message_id"], critique_b["message_id"]])
+    assert r1.index(first) < r1.index(second)
 
 
 # 3. Arbiter always appears after critiques it references
@@ -101,8 +102,9 @@ def test_disconnected_nodes_handled_deterministically():
     r1 = _ids(linearize_transcript_topology(events))
     r2 = _ids(linearize_transcript_topology(list(reversed(events))))
     assert r1 == r2
-    # Orphan has no deps and earliest timestamp — should appear first
-    assert r1[0] == orphan["message_id"]
+    # All disconnected nodes sorted by message_id bytes; first is min by message_id
+    no_dep_ids = [orphan["message_id"], proposal["message_id"]]
+    assert r1[0] == min(no_dep_ids)
 
 
 # 5. Repeated runs byte-identical

@@ -29,8 +29,8 @@ def linearize_transcript_topology(events: list) -> list:
     1. Root nodes (no parent) first.
     2. Children after parent (parent_message_id dependency).
     3. Arbiter/synthesis nodes after all referenced events (references dependency).
-    4. Siblings sorted by (created_at, message_id) as deterministic tie-break.
-    5. Disconnected nodes handled by same tie-break.
+    4. Siblings sorted by canonical normalized UTF-8 message_id bytes.
+    5. Final tie-break by original input index. No timestamp dependence.
 
     Non-transcript events (event_type != 'transcript.message') are silently ignored.
     """
@@ -38,6 +38,7 @@ def linearize_transcript_topology(events: list) -> list:
     if not events:
         return []
 
+    input_index = {e["message_id"]: i for i, e in enumerate(events)}
     by_id = {e["message_id"]: e for e in events}
 
     deps: dict[str, set] = {}
@@ -60,7 +61,7 @@ def linearize_transcript_topology(events: list) -> list:
         if not ready:
             ready = list(remaining)
 
-        ready.sort(key=lambda mid: (by_id[mid].get("created_at", ""), mid))
+        ready.sort(key=lambda mid: (mid.encode("utf-8"), input_index[mid]))
         chosen = ready[0]
 
         result.append(by_id[chosen])
@@ -94,6 +95,7 @@ def compute_transcript_linearization(events: list) -> dict:
             "linearization_id": "tlin_" + _sha256(_canonical({"order": empty, "orphaned": []}))[:24],
         }
 
+    input_index = {e["message_id"]: i for i, e in enumerate(events)}
     by_id = {e["message_id"]: e for e in events}
 
     orphaned = sorted(
@@ -122,7 +124,7 @@ def compute_transcript_linearization(events: list) -> dict:
                 f"Cycle detected in transcript topology involving "
                 f"{len(remaining)} node(s): {sorted(remaining)}"
             )
-        emitted.add(min(ready, key=lambda mid: (by_id[mid].get("created_at", ""), mid)))
+        emitted.add(min(ready, key=lambda mid: (mid.encode("utf-8"), input_index[mid])))
         remaining -= emitted
 
     linearized = linearize_transcript_topology(events)
