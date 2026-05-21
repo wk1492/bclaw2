@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-_TRANSCRIPT = "transcript.message"
+from transcript_topology import TRANSCRIPT_EVENT_TYPE as _TRANSCRIPT
 
 
 class TranscriptTopologyIndex:

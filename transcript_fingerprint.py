@@ -20,9 +20,9 @@ from __future__ import annotations
 import hashlib
 import json
 
-from transcript_topology import linearize_transcript_topology
+from transcript_topology import TRANSCRIPT_EVENT_TYPE, linearize_transcript_topology
 
-_TRANSCRIPT = "transcript.message"
+_TRANSCRIPT = TRANSCRIPT_EVENT_TYPE  # single definition; prevents constant drift
 
 
 def _canonical(obj) -> str:
@@ -36,7 +36,7 @@ def compute_topology_fingerprint(events: list[dict]) -> str:
     Steps:
       1. Filter to transcript.message events.
       2. Linearize deterministically via linearize_transcript_topology.
-      3. Build (message_id, parent_message_id) tuples; missing parent → "".
+      3. Build [message_id, parent_message_id] pairs; missing/empty parent → null.
       4. Canonical JSON → UTF-8 → sha256 hex.
 
     Same structure, any ingestion order → identical fingerprint.
