@@ -23,6 +23,8 @@
 !projects/**
 !scheduler/
 !scheduler/**
+!task_queue/
+!task_queue/**
 
 # Runtime memory / queues
 idea_ledger.jsonl
