@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from cognitive_transaction import CognitiveTransaction
 from ledger_writer import LedgerWriter
 from model_runner import run_proposal
 from replay_audit import compute_replay_audit
@@ -190,9 +191,9 @@ def run_single_turn(
     prompt = _build_prompt(input_text)
     prompt_hash = _sha256(prompt)
 
-    # ── Gate record 1: ModelCallRecord ────────────────────────────────────────
-    _append_gate_record(
-        {
+    with CognitiveTransaction(ledger_path) as txn:
+        # Stage Gate 1 before model is called
+        txn.stage_gate({
             "event_type": "model_call_record",
             "substrate_version": SUBSTRATE_VERSION,
             "run_id": run_id,
@@ -200,72 +201,61 @@ def run_single_turn(
             "recipient": recipient,
             "model_name": model_name,
             "prompt_hash": prompt_hash,
-        },
-        ledger_path,
-    )
+        })
 
-    # ── Model call ────────────────────────────────────────────────────────────
-    runner_payload = run_proposal(
-        run_id=run_id,
-        sender=sender,
-        recipient=recipient,
-        role=role,
-        prompt=prompt,
-        model_name=model_name,
-    )
-    content = runner_payload["content"]
-    output_hash = runner_payload["output_hash"]
+        # Speculative: model call — exception here → ROLLBACK
+        runner_payload = run_proposal(
+            run_id=run_id,
+            sender=sender,
+            recipient=recipient,
+            role=role,
+            prompt=prompt,
+            model_name=model_name,
+        )
+        content = runner_payload["content"]
+        output_hash = runner_payload["output_hash"]
 
-    # ── Gate record 2: ModelOutputRecord ──────────────────────────────────────
-    _append_gate_record(
-        {
+        txn.stage_gate({
             "event_type": "model_output_record",
             "substrate_version": SUBSTRATE_VERSION,
             "run_id": run_id,
             "model_name": model_name,
             "output_hash": output_hash,
-        },
-        ledger_path,
-    )
-
-    # ── Gate record 3: RoutingDecisionRecord ──────────────────────────────────
-    _append_gate_record(
-        {
+        })
+        txn.stage_gate({
             "event_type": "routing_decision_record",
             "substrate_version": SUBSTRATE_VERSION,
             "run_id": run_id,
             "sender": sender,
             "recipient": recipient,
             "role": role,
-        },
-        ledger_path,
-    )
+        })
 
-    # ── Build and append transcript event ─────────────────────────────────────
-    created_at = _deterministic_created_at(run_id, content)
+        created_at = _deterministic_created_at(run_id, content)
+        provenance: dict[str, Any] = {
+            "prompt_hash": prompt_hash,
+            "model_name": model_name,
+            "output_hash": output_hash,
+            "substrate_version": SUBSTRATE_VERSION,
+            "runner_output": runner_payload,
+        }
+        if extra_metadata:
+            provenance["extra"] = extra_metadata
 
-    provenance: dict[str, Any] = {
-        "prompt_hash": prompt_hash,
-        "model_name": model_name,
-        "output_hash": output_hash,
-        "substrate_version": SUBSTRATE_VERSION,
-        "runner_output": runner_payload,
-    }
-    if extra_metadata:
-        provenance["extra"] = extra_metadata
+        event = make_transcript_event(
+            run_id=run_id,
+            sender=sender,
+            recipient=recipient,
+            role=role,
+            content=content,
+            created_at=created_at,
+            metadata={"provenance": provenance},
+        )
 
-    event = make_transcript_event(
-        run_id=run_id,
-        sender=sender,
-        recipient=recipient,
-        role=role,
-        content=content,
-        created_at=created_at,
-        metadata={"provenance": provenance},
-    )
-
-    validate_transcript_event(event)
-    append_transcript_event(event, ledger_path)
+        # Validation before staging — exception here → ROLLBACK
+        validate_transcript_event(event)
+        txn.stage_transcript(event)
+    # COMMIT: all 4 records written atomically
 
     # ── Replay and audit ──────────────────────────────────────────────────────
     transcript_events = replay_transcript_events(ledger_path)
@@ -370,40 +360,31 @@ def _append_one_turn(
 
     append_start = time.monotonic()
 
-    gate_records = [
-        _append_gate_record(
-            {
-                "event_type": "model_call_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "sender": sender,
-                "recipient": recipient,
-                "model_name": model_name,
-                "prompt_hash": prompt_hash,
-            },
-            ledger_path,
-        ),
-        _append_gate_record(
-            {
-                "event_type": "model_output_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "model_name": model_name,
-                "output_hash": output_hash,
-            },
-            ledger_path,
-        ),
-        _append_gate_record(
-            {
-                "event_type": "routing_decision_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "sender": sender,
-                "recipient": recipient,
-                "role": role,
-            },
-            ledger_path,
-        ),
+    gate_dicts = [
+        {
+            "event_type": "model_call_record",
+            "substrate_version": SUBSTRATE_VERSION,
+            "run_id": run_id,
+            "sender": sender,
+            "recipient": recipient,
+            "model_name": model_name,
+            "prompt_hash": prompt_hash,
+        },
+        {
+            "event_type": "model_output_record",
+            "substrate_version": SUBSTRATE_VERSION,
+            "run_id": run_id,
+            "model_name": model_name,
+            "output_hash": output_hash,
+        },
+        {
+            "event_type": "routing_decision_record",
+            "substrate_version": SUBSTRATE_VERSION,
+            "run_id": run_id,
+            "sender": sender,
+            "recipient": recipient,
+            "role": role,
+        },
     ]
 
     created_at = _deterministic_created_at(run_id, content)
@@ -426,14 +407,19 @@ def _append_one_turn(
         created_at=created_at,
         metadata={"provenance": provenance},
     )
-    validate_transcript_event(event)
-    append_transcript_event(event, ledger_path)
+
+    with CognitiveTransaction(ledger_path) as txn:
+        for g in gate_dicts:
+            txn.stage_gate(g)
+        validate_transcript_event(event)   # raises → ROLLBACK
+        txn.stage_transcript(event)
+    # COMMIT
 
     append_end = time.monotonic()
 
     return TurnExecutionResult(
         turn_index=turn_index,
-        records=gate_records,
+        records=gate_dicts,
         transcript_messages=[event],
         instrumentation={
             "turn_index": turn_index,
