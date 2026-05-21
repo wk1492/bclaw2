@@ -33,7 +33,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from ledger_writer import LedgerWriter
 from model_runner import run_proposal
@@ -47,6 +47,15 @@ from transcript_ledger import (
     verify_mixed_ledger,
 )
 from transcript_validator import validate_transcript_event
+
+# ── types ─────────────────────────────────────────────────────────────────────
+
+class TurnExecutionResult(NamedTuple):
+    turn_index: int
+    records: list[dict[str, Any]]        # three gate records as written to ledger
+    transcript_messages: list[dict[str, Any]]  # transcript.message events appended
+    instrumentation: dict[str, Any]      # non-canonical wall-clock floats
+
 
 # ── constants ──────────────────────────────────────────────────────────────────
 
@@ -342,6 +351,100 @@ def _generate_one(turn_index: int, spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _append_one_turn(
+    turn_index: int,
+    gen: dict[str, Any],
+    ledger_path: Path,
+) -> TurnExecutionResult:
+    """Append one generated turn to the ledger. Sequential — no concurrent calls."""
+    run_id = gen["run_id"]
+    runner_payload = gen["runner_payload"]
+    content = runner_payload["content"]
+    output_hash = runner_payload["output_hash"]
+    model_name = gen["model_name"]
+    role = gen["role"]
+    sender = gen["sender"]
+    recipient = gen["recipient"]
+    prompt_hash = gen["prompt_hash"]
+    extra_metadata = gen.get("extra_metadata")
+
+    append_start = time.monotonic()
+
+    gate_records = [
+        _append_gate_record(
+            {
+                "event_type": "model_call_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "sender": sender,
+                "recipient": recipient,
+                "model_name": model_name,
+                "prompt_hash": prompt_hash,
+            },
+            ledger_path,
+        ),
+        _append_gate_record(
+            {
+                "event_type": "model_output_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "model_name": model_name,
+                "output_hash": output_hash,
+            },
+            ledger_path,
+        ),
+        _append_gate_record(
+            {
+                "event_type": "routing_decision_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "sender": sender,
+                "recipient": recipient,
+                "role": role,
+            },
+            ledger_path,
+        ),
+    ]
+
+    created_at = _deterministic_created_at(run_id, content)
+    provenance: dict[str, Any] = {
+        "prompt_hash": prompt_hash,
+        "model_name": model_name,
+        "output_hash": output_hash,
+        "substrate_version": SUBSTRATE_VERSION,
+        "runner_output": runner_payload,
+    }
+    if extra_metadata:
+        provenance["extra"] = extra_metadata
+
+    event = make_transcript_event(
+        run_id=run_id,
+        sender=sender,
+        recipient=recipient,
+        role=role,
+        content=content,
+        created_at=created_at,
+        metadata={"provenance": provenance},
+    )
+    validate_transcript_event(event)
+    append_transcript_event(event, ledger_path)
+
+    append_end = time.monotonic()
+
+    return TurnExecutionResult(
+        turn_index=turn_index,
+        records=gate_records,
+        transcript_messages=[event],
+        instrumentation={
+            "turn_index": turn_index,
+            "generation_start": gen["_gen_start"],
+            "generation_end": gen["_gen_end"],
+            "append_start": append_start,
+            "append_end": append_end,
+        },
+    )
+
+
 def run_parallel_turns(
     turns: list[dict[str, Any]],
     ledger_path: str | Path,
@@ -391,101 +494,9 @@ def run_parallel_turns(
     ordered = sorted(generated.items())
 
     # ── Phase 3: Sequential append to ledger ──────────────────────────────────
-    results: list[dict[str, Any]] = []
-    instrumentation: list[dict[str, Any]] = []
-
-    for idx, gen in ordered:
-        run_id = gen["run_id"]
-        runner_payload = gen["runner_payload"]
-        content = runner_payload["content"]
-        output_hash = runner_payload["output_hash"]
-        model_name = gen["model_name"]
-        role = gen["role"]
-        sender = gen["sender"]
-        recipient = gen["recipient"]
-        prompt_hash = gen["prompt_hash"]
-        extra_metadata = gen.get("extra_metadata")
-
-        append_start = time.monotonic()
-
-        _append_gate_record(
-            {
-                "event_type": "model_call_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "sender": sender,
-                "recipient": recipient,
-                "model_name": model_name,
-                "prompt_hash": prompt_hash,
-            },
-            ledger_path,
-        )
-        _append_gate_record(
-            {
-                "event_type": "model_output_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "model_name": model_name,
-                "output_hash": output_hash,
-            },
-            ledger_path,
-        )
-        _append_gate_record(
-            {
-                "event_type": "routing_decision_record",
-                "substrate_version": SUBSTRATE_VERSION,
-                "run_id": run_id,
-                "sender": sender,
-                "recipient": recipient,
-                "role": role,
-            },
-            ledger_path,
-        )
-
-        created_at = _deterministic_created_at(run_id, content)
-        provenance: dict[str, Any] = {
-            "prompt_hash": prompt_hash,
-            "model_name": model_name,
-            "output_hash": output_hash,
-            "substrate_version": SUBSTRATE_VERSION,
-            "runner_output": runner_payload,
-        }
-        if extra_metadata:
-            provenance["extra"] = extra_metadata
-
-        event = make_transcript_event(
-            run_id=run_id,
-            sender=sender,
-            recipient=recipient,
-            role=role,
-            content=content,
-            created_at=created_at,
-            metadata={"provenance": provenance},
-        )
-        validate_transcript_event(event)
-        append_transcript_event(event, ledger_path)
-
-        append_end = time.monotonic()
-
-        results.append({
-            "turn_index": idx,
-            "run_id": run_id,
-            "message_id": event["message_id"],
-            "content": content,
-            "provenance": {
-                "prompt_hash": prompt_hash,
-                "model_name": model_name,
-                "output_hash": output_hash,
-                "substrate_version": SUBSTRATE_VERSION,
-            },
-        })
-        instrumentation.append({
-            "turn_index": idx,
-            "generation_start": gen["_gen_start"],
-            "generation_end": gen["_gen_end"],
-            "append_start": append_start,
-            "append_end": append_end,
-        })
+    turn_results: list[TurnExecutionResult] = [
+        _append_one_turn(idx, gen, ledger_path) for idx, gen in ordered
+    ]
 
     transcript_events = replay_transcript_events(ledger_path)
     replay_audit = compute_replay_audit(transcript_events)
@@ -493,14 +504,14 @@ def run_parallel_turns(
 
     return {
         "turns_requested": len(turns),
-        "turns_completed": len(results),
+        "turns_completed": len(turn_results),
         "turns_failed": len(errors),
         "failed": {str(k): v for k, v in sorted(errors.items())},
-        "results": results,
+        "results": turn_results,
         "event_count": len(transcript_events),
         "replay_audit": replay_audit,
         "chain_ok": chain_status.get("ok", False),
-        "_instrumentation": instrumentation,
+        "_instrumentation": [r.instrumentation for r in turn_results],
     }
 
 

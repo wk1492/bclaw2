@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from conversation_runner import (
+    TurnExecutionResult,
     build_history_summary,
     run_conversation,
     run_parallel_turns,
@@ -312,6 +313,14 @@ def test_parallel_turns_returns_expected_keys(tmp_path):
         assert key in result, f"run_parallel_turns result missing {key!r}"
 
 
+def test_parallel_turns_results_are_turn_execution_results(tmp_path):
+    result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    for r in result["results"]:
+        assert isinstance(r, TurnExecutionResult)
+        assert len(r.records) == 3
+        assert len(r.transcript_messages) == 1
+
+
 def test_parallel_turns_all_completed(tmp_path):
     result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
     assert result["turns_requested"] == 4
@@ -332,7 +341,7 @@ def test_parallel_turns_gate_order_per_turn(tmp_path):
 
 def test_parallel_turns_append_order_deterministic(tmp_path):
     result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
-    indices = [r["turn_index"] for r in result["results"]]
+    indices = [r.turn_index for r in result["results"]]
     assert indices == sorted(indices), "results not in deterministic turn-index order"
 
 
@@ -345,9 +354,25 @@ def test_parallel_turns_repeated_runs_canonical_identical(tmp_path):
     r1 = run_parallel_turns(turns, tmp_path / "det_a.jsonl")
     r2 = run_parallel_turns(turns, tmp_path / "det_b.jsonl")
 
-    # Strip non-canonical _instrumentation before comparing
+    # LedgerWriter injects timestamp/event_hash/etc. which are wall-clock-derived.
+    # Strip those before comparing, same as _safe_result_view.
+    _NON_CANON = {"timestamp", "event_hash", "event_id", "previous_hash", "rolling_hash"}
+
+    def _strip(d):
+        return {k: v for k, v in d.items() if k not in _NON_CANON}
+
+    def _canon_results(results):
+        return [
+            {"turn_index": r.turn_index,
+             "records": [_strip(rec) for rec in r.records],
+             "transcript_messages": [_strip(msg) for msg in r.transcript_messages]}
+            for r in results
+        ]
+
     r1_canon = {k: v for k, v in r1.items() if k != "_instrumentation"}
     r2_canon = {k: v for k, v in r2.items() if k != "_instrumentation"}
+    r1_canon["results"] = _canon_results(r1_canon["results"])
+    r2_canon["results"] = _canon_results(r2_canon["results"])
     assert canonical_json(r1_canon) == canonical_json(r2_canon)
 
 
