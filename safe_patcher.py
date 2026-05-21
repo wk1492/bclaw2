@@ -109,7 +109,7 @@ class SafePatcher:
         }
         ledger = self.root / "idea_ledger.jsonl"
         with ledger.open("a") as f:
-            f.write(json.dumps(entry) + "\n")
+            f.write(json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n")
 
 
 if __name__ == "__main__":

@@ -83,16 +83,16 @@ def test_broadcast_visible_to_all_via_read_broadcasts():
         assert m5["message_id"] not in inbox, f"broadcast m5 must not appear in {agent} mailbox"
 
 
-# 5. mailbox order is deterministic by (created_at, message_id)
-def test_mailbox_order_deterministic_by_created_at_then_message_id():
+# 5. mailbox order is deterministic by message_id (canonical)
+def test_mailbox_order_deterministic_by_message_id():
     mb, _, _ = _fresh_mailbox()
     mb.append_message("agent_b", "agent_a", "reply", "Follow-up to critique")
     mb.append_message("arbiter", "agent_a", "system", "System note: review requested")
 
     inbox = mb.read_mailbox("agent_a")
-    sort_keys = [(e.get("created_at", ""), e["message_id"]) for e in inbox]
-    assert sort_keys == sorted(sort_keys), (
-        "read_mailbox must return events sorted by (created_at, message_id)"
+    message_ids = [e["message_id"] for e in inbox]
+    assert message_ids == sorted(message_ids), (
+        "read_mailbox must return events sorted by message_id"
     )
 
 

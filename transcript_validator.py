@@ -51,8 +51,7 @@ def validate_transcript_event(event: dict) -> dict:
 
 
 def reconstruct_thread(events: list) -> list:
-    """Return events sorted by parent/child ordering, then created_at."""
-    id_to_event = {e["message_id"]: e for e in events}
+    """Return events sorted by parent/child ordering, then message_id (canonical)."""
     roots = [e for e in events if e.get("parent_message_id") is None]
     children: dict = {}
     for e in events:
@@ -64,10 +63,10 @@ def reconstruct_thread(events: list) -> list:
 
     def walk(node):
         result.append(node)
-        for child in sorted(children.get(node["message_id"], []), key=lambda x: x["created_at"]):
+        for child in sorted(children.get(node["message_id"], []), key=lambda x: x["message_id"]):
             walk(child)
 
-    for root in sorted(roots, key=lambda x: x["created_at"]):
+    for root in sorted(roots, key=lambda x: x["message_id"]):
         walk(root)
 
     return result

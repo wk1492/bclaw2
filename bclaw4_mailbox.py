@@ -70,12 +70,12 @@ class Mailbox:
     def read_mailbox(self, agent_id: str) -> list:
         events = self._transcript_events()
         inbox = [e for e in events if e.get("recipient") == agent_id]
-        return sorted(inbox, key=lambda e: (e.get("created_at", ""), e["message_id"]))
+        return sorted(inbox, key=lambda e: e["message_id"])
 
     def read_broadcasts(self) -> list:
         events = self._transcript_events()
         broadcasts = [e for e in events if e.get("recipient") == "broadcast"]
-        return sorted(broadcasts, key=lambda e: (e.get("created_at", ""), e["message_id"]))
+        return sorted(broadcasts, key=lambda e: e["message_id"])
 
     def reconstruct_conversation(self) -> list:
         return linearize_transcript_topology(self._transcript_events())

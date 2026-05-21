@@ -11,9 +11,10 @@ def fuse(records, strategy="keep_first"):
         for r in records:
             seen[r["id"]] = r
         result = []
-        for r in seen.values():
+        for id_ in sorted(seen.keys()):
+            r = seen[id_]
             out = {**r, "fused": True}
-            if r["id"] in conflicts:
+            if id_ in conflicts:
                 out["conflict"] = True
             result.append(out)
         return result

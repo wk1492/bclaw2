@@ -35,7 +35,7 @@ def build_run_record(run_type, input_data, output_data, metadata=None, timestamp
 
 def append_run(record):
     with EXECUTION_LEDGER_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, sort_keys=True) + "\n")
+        f.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
 
 
 if __name__ == "__main__":
