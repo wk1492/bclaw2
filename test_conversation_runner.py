@@ -1,8 +1,8 @@
 """
 test_conversation_runner.py
 
-Structural acceptance tests for conversation_runner.run_single_turn.
-All 10 criteria verified. No semantic answer assertions. No live model calls.
+Structural acceptance tests for conversation_runner.run_single_turn and
+run_parallel_turns.  No semantic answer assertions. No live model calls.
 """
 from __future__ import annotations
 
@@ -12,7 +12,12 @@ from unittest.mock import patch
 
 import pytest
 
-from conversation_runner import build_history_summary, run_conversation, run_single_turn
+from conversation_runner import (
+    build_history_summary,
+    run_conversation,
+    run_parallel_turns,
+    run_single_turn,
+)
 from ledger_writer import verify_ledger
 from transcript_event import canonical_json
 from transcript_ledger import load_ledger_lines, replay_transcript_events
@@ -288,3 +293,76 @@ def test_no_global_execution_ledger_written(tmp_path):
     _single_turn(tmp_path)
     size_after = global_ledger.stat().st_size if global_ledger.exists() else -1
     assert size_before == size_after, "run_single_turn must not write to execution_ledger.jsonl"
+
+
+# ── 11. run_parallel_turns ────────────────────────────────────────────────────
+
+_PARALLEL_TURNS = [
+    {"run_id": f"run_p_{i:03d}", "sender": "agent_a", "recipient": "agent_b",
+     "input_text": f"Parallel input {i}."}
+    for i in range(4)
+]
+
+
+def test_parallel_turns_returns_expected_keys(tmp_path):
+    result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    for key in ("turns_requested", "turns_completed", "turns_failed",
+                "failed", "results", "event_count", "replay_audit",
+                "chain_ok", "_instrumentation"):
+        assert key in result, f"run_parallel_turns result missing {key!r}"
+
+
+def test_parallel_turns_all_completed(tmp_path):
+    result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    assert result["turns_requested"] == 4
+    assert result["turns_completed"] == 4
+    assert result["turns_failed"] == 0
+    assert result["failed"] == {}
+
+
+def test_parallel_turns_gate_order_per_turn(tmp_path):
+    run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    lines = load_ledger_lines(tmp_path / "p.jsonl")
+    types = [ln.get("event_type") for ln in lines]
+    assert len(types) == 16, f"expected 16 records (4 per turn), got {len(types)}"
+    for i in range(4):
+        block = types[i * 4:(i + 1) * 4]
+        assert tuple(block) == _GATE_SEQUENCE, f"turn {i} gate order wrong: {block}"
+
+
+def test_parallel_turns_append_order_deterministic(tmp_path):
+    result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    indices = [r["turn_index"] for r in result["results"]]
+    assert indices == sorted(indices), "results not in deterministic turn-index order"
+
+
+def test_parallel_turns_repeated_runs_canonical_identical(tmp_path):
+    turns = [
+        {"run_id": f"run_det_{i}", "sender": "ag_a", "recipient": "ag_b",
+         "input_text": f"Det input {i}."}
+        for i in range(3)
+    ]
+    r1 = run_parallel_turns(turns, tmp_path / "det_a.jsonl")
+    r2 = run_parallel_turns(turns, tmp_path / "det_b.jsonl")
+
+    # Strip non-canonical _instrumentation before comparing
+    r1_canon = {k: v for k, v in r1.items() if k != "_instrumentation"}
+    r2_canon = {k: v for k, v in r2.items() if k != "_instrumentation"}
+    assert canonical_json(r1_canon) == canonical_json(r2_canon)
+
+
+def test_parallel_turns_chain_ok(tmp_path):
+    result = run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    assert result["chain_ok"] is True
+
+
+def test_parallel_turns_replay_no_model_call(tmp_path):
+    run_parallel_turns(_PARALLEL_TURNS, tmp_path / "p.jsonl")
+    with patch("conversation_runner.run_proposal") as mock:
+        replay_transcript_events(tmp_path / "p.jsonl")
+    mock.assert_not_called()
+
+
+def test_parallel_turns_empty_raises(tmp_path):
+    with pytest.raises((ValueError, TypeError)):
+        run_parallel_turns([], tmp_path / "empty.jsonl")

@@ -29,6 +29,8 @@ Invariants preserved:
 from __future__ import annotations
 
 import hashlib
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -285,6 +287,221 @@ def run_single_turn(
         result["history_summary"] = build_history_summary(transcript_events)
 
     return result
+
+
+# ── run_parallel_turns ────────────────────────────────────────────────────────
+#
+# Concurrency model:
+#   Phase 1 — concurrent model generation via ThreadPoolExecutor (no I/O)
+#   Phase 2 — sort generated results by turn index (deterministic)
+#   Phase 3 — sequential ledger append in sorted order
+#
+# Same inputs → byte-identical canonical result (excluding _instrumentation).
+# _instrumentation holds wall-clock floats and is explicitly non-canonical.
+
+def _generate_one(turn_index: int, spec: dict[str, Any]) -> dict[str, Any]:
+    """
+    Pure model generation for one turn. No ledger writes.
+    Returns generation result + non-canonical timing data.
+    Raises on model error — caller handles per-turn failure.
+    """
+    run_id = spec["run_id"]
+    sender = spec["sender"]
+    recipient = spec["recipient"]
+    input_text = spec["input_text"]
+    cfg = spec.get("model_config") or {}
+    model_name = cfg.get("model_name", "stub")
+    role = cfg.get("role", "proposal")
+
+    prompt = _build_prompt(input_text)
+    prompt_hash = _sha256(prompt)
+
+    gen_start = time.monotonic()
+    runner_payload = run_proposal(
+        run_id=run_id,
+        sender=sender,
+        recipient=recipient,
+        role=role,
+        prompt=prompt,
+        model_name=model_name,
+    )
+    gen_end = time.monotonic()
+
+    return {
+        "turn_index": turn_index,
+        "run_id": run_id,
+        "sender": sender,
+        "recipient": recipient,
+        "role": role,
+        "model_name": model_name,
+        "prompt_hash": prompt_hash,
+        "runner_payload": runner_payload,
+        "extra_metadata": spec.get("extra_metadata"),
+        "_gen_start": gen_start,
+        "_gen_end": gen_end,
+    }
+
+
+def run_parallel_turns(
+    turns: list[dict[str, Any]],
+    ledger_path: str | Path,
+    *,
+    max_workers: int = 4,
+) -> dict[str, Any]:
+    """
+    Execute model generation concurrently, append to ledger sequentially
+    in deterministic turn-index order.
+
+    Each turn spec must contain: input_text, run_id, sender, recipient.
+    Optional: model_config, extra_metadata.
+
+    Gate ordering per turn (enforced in Phase 3):
+      model_call_record → model_output_record → routing_decision_record
+      → transcript.message
+
+    Failed turns are recorded in 'failed'; they produce no ledger writes.
+    Ledger remains valid after partial failure.
+
+    _instrumentation in return value contains wall-clock floats.
+    It is explicitly non-canonical and must be excluded from canonical_json
+    comparisons.
+    """
+    if not turns:
+        raise ValueError("turns must be non-empty")
+
+    ledger_path = Path(ledger_path)
+
+    # ── Phase 1: Concurrent model generation ─────────────────────────────────
+    generated: dict[int, dict[str, Any]] = {}
+    errors: dict[int, str] = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_generate_one, idx, spec): idx
+            for idx, spec in enumerate(turns)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                generated[idx] = future.result()
+            except Exception as exc:
+                errors[idx] = str(exc)
+
+    # ── Phase 2: Sort by turn index (deterministic append order) ──────────────
+    ordered = sorted(generated.items())
+
+    # ── Phase 3: Sequential append to ledger ──────────────────────────────────
+    results: list[dict[str, Any]] = []
+    instrumentation: list[dict[str, Any]] = []
+
+    for idx, gen in ordered:
+        run_id = gen["run_id"]
+        runner_payload = gen["runner_payload"]
+        content = runner_payload["content"]
+        output_hash = runner_payload["output_hash"]
+        model_name = gen["model_name"]
+        role = gen["role"]
+        sender = gen["sender"]
+        recipient = gen["recipient"]
+        prompt_hash = gen["prompt_hash"]
+        extra_metadata = gen.get("extra_metadata")
+
+        append_start = time.monotonic()
+
+        _append_gate_record(
+            {
+                "event_type": "model_call_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "sender": sender,
+                "recipient": recipient,
+                "model_name": model_name,
+                "prompt_hash": prompt_hash,
+            },
+            ledger_path,
+        )
+        _append_gate_record(
+            {
+                "event_type": "model_output_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "model_name": model_name,
+                "output_hash": output_hash,
+            },
+            ledger_path,
+        )
+        _append_gate_record(
+            {
+                "event_type": "routing_decision_record",
+                "substrate_version": SUBSTRATE_VERSION,
+                "run_id": run_id,
+                "sender": sender,
+                "recipient": recipient,
+                "role": role,
+            },
+            ledger_path,
+        )
+
+        created_at = _deterministic_created_at(run_id, content)
+        provenance: dict[str, Any] = {
+            "prompt_hash": prompt_hash,
+            "model_name": model_name,
+            "output_hash": output_hash,
+            "substrate_version": SUBSTRATE_VERSION,
+            "runner_output": runner_payload,
+        }
+        if extra_metadata:
+            provenance["extra"] = extra_metadata
+
+        event = make_transcript_event(
+            run_id=run_id,
+            sender=sender,
+            recipient=recipient,
+            role=role,
+            content=content,
+            created_at=created_at,
+            metadata={"provenance": provenance},
+        )
+        validate_transcript_event(event)
+        append_transcript_event(event, ledger_path)
+
+        append_end = time.monotonic()
+
+        results.append({
+            "turn_index": idx,
+            "run_id": run_id,
+            "message_id": event["message_id"],
+            "content": content,
+            "provenance": {
+                "prompt_hash": prompt_hash,
+                "model_name": model_name,
+                "output_hash": output_hash,
+                "substrate_version": SUBSTRATE_VERSION,
+            },
+        })
+        instrumentation.append({
+            "turn_index": idx,
+            "generation_start": gen["_gen_start"],
+            "generation_end": gen["_gen_end"],
+            "append_start": append_start,
+            "append_end": append_end,
+        })
+
+    transcript_events = replay_transcript_events(ledger_path)
+    replay_audit = compute_replay_audit(transcript_events)
+    chain_status = verify_mixed_ledger(ledger_path)
+
+    return {
+        "turns_requested": len(turns),
+        "turns_completed": len(results),
+        "turns_failed": len(errors),
+        "failed": {str(k): v for k, v in sorted(errors.items())},
+        "results": results,
+        "event_count": len(transcript_events),
+        "replay_audit": replay_audit,
+        "chain_ok": chain_status.get("ok", False),
+        "_instrumentation": instrumentation,
+    }
 
 
 # ── run_conversation (replay-only, no model calls) ─────────────────────────────
