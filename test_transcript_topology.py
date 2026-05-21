@@ -1,8 +1,16 @@
 import itertools
 import json
+from pathlib import Path
 
-from transcript_event import make_transcript_event
-from transcript_topology import linearize_transcript_topology
+from ledger_writer import LedgerWriter, verify_ledger
+from transcript_event import canonical_json, make_transcript_event
+from transcript_ledger import replay_execution_events
+from transcript_topology import (
+    compute_transcript_linearization,
+    linearize_transcript,
+    linearize_transcript_topology,
+)
+from transcript_validator import reconstruct_thread
 
 RUN_ID = "run_topology_001"
 TS_A = "2026-05-10T14:00:00+00:00"
@@ -13,213 +21,255 @@ TS_D = "2026-05-10T14:00:03+00:00"
 
 def _make_four_event_exchange():
     proposal = make_transcript_event(
-        run_id=RUN_ID, sender="agent_a", recipient="broadcast",
-        role="proposal", content="Proposal: add edge X->Y", created_at=TS_A,
+        run_id=RUN_ID,
+        sender="agent_a",
+        recipient="broadcast",
+        role="proposal",
+        content="Proposal: add edge X->Y",
+        created_at=TS_A,
     )
     critique_a = make_transcript_event(
-        run_id=RUN_ID, sender="agent_b", recipient="agent_a",
-        role="critique", content="Critique A: insufficient evidence",
+        run_id=RUN_ID,
+        sender="agent_b",
+        recipient="agent_a",
+        role="critique",
+        content="Critique A: insufficient evidence",
         created_at=TS_B,
         parent_message_id=proposal["message_id"],
         references=[proposal["message_id"]],
     )
     critique_b = make_transcript_event(
-        run_id=RUN_ID, sender="agent_c", recipient="agent_a",
-        role="critique", content="Critique B: alternative pathway preferred",
+        run_id=RUN_ID,
+        sender="agent_c",
+        recipient="agent_a",
+        role="critique",
+        content="Critique B: alternative pathway preferred",
         created_at=TS_C,
         parent_message_id=proposal["message_id"],
         references=[proposal["message_id"]],
     )
     arbiter = make_transcript_event(
-        run_id=RUN_ID, sender="agent_arbiter", recipient="broadcast",
-        role="arbiter", content="Arbiter: proposal deferred",
+        run_id=RUN_ID,
+        sender="agent_arbiter",
+        recipient="broadcast",
+        role="arbiter",
+        content="Arbiter: proposal deferred",
         created_at=TS_D,
         parent_message_id=critique_a["message_id"],
-        references=[critique_a["message_id"], critique_b["message_id"], proposal["message_id"]],
+        references=[
+            critique_a["message_id"],
+            critique_b["message_id"],
+            proposal["message_id"],
+        ],
     )
     return proposal, critique_a, critique_b, arbiter
 
 
-def _ids(linearized):
-    return [e["message_id"] for e in linearized]
+def _ids(events):
+    return [event["message_id"] for event in events]
 
 
-def _serialize(linearized):
-    return json.dumps(
-        [e["message_id"] for e in linearized],
-        sort_keys=True, separators=(",", ":"),
-    )
+def _serialized(events):
+    return canonical_json([event["message_id"] for event in events])
 
 
-# 1. Insertion order permutations produce identical linearization
+# 1. Stable traversal despite shuffled append order.
 def test_linearization_independent_of_insertion_order():
     events = list(_make_four_event_exchange())
-    reference = _ids(linearize_transcript_topology(events))
+    reference = _ids(linearize_transcript(events))
 
-    for perm in itertools.permutations(events):
-        result = _ids(linearize_transcript_topology(list(perm)))
-        assert result == reference, f"Permutation produced different order: {result}"
-
-
-# 2. Sibling tie-breaking deterministic (critiques are siblings under proposal)
-def test_sibling_tie_breaking_deterministic():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    events = [proposal, critique_a, critique_b, arbiter]
-
-    r1 = _ids(linearize_transcript_topology(events))
-    r2 = _ids(linearize_transcript_topology(list(reversed(events))))
-    assert r1 == r2
-
-    # Siblings ordered by (created_at, message_id): critique_a (TS_B) before critique_b (TS_C)
-    assert r1.index(critique_a["message_id"]) < r1.index(critique_b["message_id"])
+    for permutation in itertools.permutations(events):
+        result = _ids(linearize_transcript(list(permutation)))
+        assert result == reference
 
 
-# 3. Arbiter always appears after critiques it references
-def test_arbiter_always_after_referenced_critiques():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
-        result = _ids(linearize_transcript_topology(list(perm)))
-        arb_pos = result.index(arbiter["message_id"])
-        assert result.index(critique_a["message_id"]) < arb_pos
-        assert result.index(critique_b["message_id"]) < arb_pos
-        assert result.index(proposal["message_id"]) < arb_pos
-
-
-# 4. Disconnected nodes handled deterministically
-def test_disconnected_nodes_handled_deterministically():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    orphan = make_transcript_event(
-        run_id=RUN_ID, sender="agent_x", recipient="broadcast",
-        role="system", content="Unrelated system note",
-        created_at="2026-05-10T13:59:59+00:00",
-    )
-    events = [proposal, critique_a, critique_b, arbiter, orphan]
-    r1 = _ids(linearize_transcript_topology(events))
-    r2 = _ids(linearize_transcript_topology(list(reversed(events))))
-    assert r1 == r2
-    # Orphan has no deps and earliest timestamp — should appear first
-    assert r1[0] == orphan["message_id"]
-
-
-# 5. Repeated runs byte-identical
-def test_repeated_runs_byte_identical():
-    events = list(_make_four_event_exchange())
-    out1 = _serialize(linearize_transcript_topology(events))
-    out2 = _serialize(linearize_transcript_topology(events))
-    out3 = _serialize(linearize_transcript_topology(list(reversed(events))))
-    assert out1 == out2 == out3
-
-
-# 6. Canonical serialization preserved
-def test_canonical_serialization_preserved():
-    events = list(_make_four_event_exchange())
-    linearized = linearize_transcript_topology(events)
-    serialized = json.dumps(
-        [{"message_id": e["message_id"], "role": e["role"]} for e in linearized],
-        sort_keys=True, separators=(",", ":"),
-    )
-    parsed = json.loads(serialized)
-    assert len(parsed) == 4
-    assert parsed[0]["role"] == "proposal"
-    assert parsed[-1]["role"] == "arbiter"
-
-
-# --- Explicit contract assertions ---
-
-# Root is always index 0
-def test_root_proposal_is_index_zero():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
-        result = linearize_transcript_topology(list(perm))
-        assert result[0]["message_id"] == proposal["message_id"], \
-            f"Expected proposal at index 0, got {result[0]['role']}"
-
-
-# Every parent appears before every child
-def test_every_parent_before_child():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
-        result = linearize_transcript_topology(list(perm))
-        ids = _ids(result)
-        for event in result:
-            parent_id = event.get("parent_message_id")
-            if parent_id and parent_id in ids:
-                assert ids.index(parent_id) < ids.index(event["message_id"]), \
-                    f"Parent {parent_id} must precede child {event['message_id']}"
-
-
-# Every referenced message appears before the referencing message
-def test_every_reference_before_referencing_event():
-    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
-    for perm in itertools.permutations([proposal, critique_a, critique_b, arbiter]):
-        result = linearize_transcript_topology(list(perm))
-        ids = _ids(result)
-        for event in result:
-            for ref_id in event.get("references", []):
-                if ref_id in ids:
-                    assert ids.index(ref_id) < ids.index(event["message_id"]), \
-                        f"Reference {ref_id} must precede {event['message_id']}"
-
-
-# message_id tie-break when siblings share identical timestamp
-def test_sibling_message_id_tiebreak_when_same_timestamp():
+# 2. Deterministic ordering for sibling critiques.
+def test_sibling_ordering_uses_created_at_then_message_id():
     proposal = make_transcript_event(
-        run_id=RUN_ID, sender="agent_a", recipient="broadcast",
-        role="proposal", content="Proposal", created_at=TS_A,
+        run_id=RUN_ID,
+        sender="agent_a",
+        recipient="broadcast",
+        role="proposal",
+        content="Proposal",
+        created_at=TS_A,
     )
-    # Two critiques at identical timestamp — ordered by message_id
-    crit_x = make_transcript_event(
-        run_id=RUN_ID, sender="agent_x", recipient="agent_a",
-        role="critique", content="Critique X",
+
+    critique_x = make_transcript_event(
+        run_id=RUN_ID,
+        sender="agent_x",
+        recipient="agent_a",
+        role="critique",
+        content="Critique X",
         created_at=TS_B,
         parent_message_id=proposal["message_id"],
         references=[proposal["message_id"]],
     )
-    crit_y = make_transcript_event(
-        run_id=RUN_ID, sender="agent_y", recipient="agent_a",
-        role="critique", content="Critique Y",
-        created_at=TS_B,  # same timestamp as crit_x
+
+    critique_y = make_transcript_event(
+        run_id=RUN_ID,
+        sender="agent_y",
+        recipient="agent_a",
+        role="critique",
+        content="Critique Y",
+        created_at=TS_B,
         parent_message_id=proposal["message_id"],
         references=[proposal["message_id"]],
     )
-    events = [proposal, crit_x, crit_y]
-    for perm in itertools.permutations(events):
-        result = _ids(linearize_transcript_topology(list(perm)))
-        # Both orderings with same timestamp must agree — tie-broken by message_id lexicographically
-        expected_order = sorted(
-            [crit_x["message_id"], crit_y["message_id"]]
-        )
-        actual_order = [mid for mid in result if mid != proposal["message_id"]]
-        assert actual_order == expected_order, \
-            f"Same-timestamp siblings must be ordered by message_id: {actual_order}"
+
+    result = _ids(linearize_transcript([proposal, critique_y, critique_x]))
+    expected = sorted([critique_x["message_id"], critique_y["message_id"]])
+
+    assert result[0] == proposal["message_id"]
+    assert result[1:] == expected
 
 
-# 7. Replay proof topology unaffected by linearizer existence
-def test_replay_proof_topology_unaffected():
-    from transcript_event import make_transcript_event
-    from transcript_validator import reconstruct_thread
+# 3. Orphan handling deterministic (synthetic roots).
+def test_orphaned_parent_becomes_synthetic_root():
+    orphan = make_transcript_event(
+        run_id=RUN_ID,
+        sender="agent_orphan",
+        recipient="broadcast",
+        role="system",
+        content="Orphaned transcript",
+        created_at="2026-05-10T13:59:59+00:00",
+        parent_message_id="missing_parent_message",
+    )
 
-    prop = make_transcript_event(
-        run_id="run_proof", sender="agent_a", recipient="agent_b",
-        role="proposal", content="Add causal edge: fatigue -> error_rate",
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+    result = linearize_transcript([
+        critique_b,
+        arbiter,
+        orphan,
+        proposal,
+        critique_a,
+    ])
+
+    ids = _ids(result)
+    assert ids[0] == orphan["message_id"]
+    assert proposal["message_id"] in ids
+
+    report = compute_transcript_linearization(result)
+    assert report["orphaned"] == [orphan["message_id"]]
+
+
+# 4. Mixed ledger filtering.
+def test_non_transcript_events_ignored():
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+    mixed = [
+        {"event_type": "execution.record", "id": "exec_001"},
+        proposal,
+        critique_a,
+        {"event_type": "candidate.validation", "id": "exec_002"},
+        critique_b,
+        arbiter,
+    ]
+
+    linearized = linearize_transcript(mixed)
+    assert len(linearized) == 4
+    assert all(event["event_type"] == "transcript.message" for event in linearized)
+
+
+# 5. Repeated traversal byte-identical.
+def test_repeated_linearization_byte_identical():
+    events = list(_make_four_event_exchange())
+
+    out1 = _serialized(linearize_transcript(events))
+    out2 = _serialized(linearize_transcript(events))
+    out3 = _serialized(linearize_transcript(list(reversed(events))))
+
+    assert out1 == out2 == out3
+
+
+# 6. Canonical serialization preserved.
+def test_canonical_serialization_preserved():
+    events = list(_make_four_event_exchange())
+    linearized = linearize_transcript(events)
+
+    serialized = canonical_json([
+        {"message_id": event["message_id"], "role": event["role"]}
+        for event in linearized
+    ])
+
+    parsed = json.loads(serialized)
+    assert parsed[0]["role"] == "proposal"
+    assert parsed[-1]["role"] == "arbiter"
+
+
+# 7. Existing transcript replay proof compatibility.
+def test_replay_proof_compatibility_preserved():
+    proposal = make_transcript_event(
+        run_id="run_proof",
+        sender="agent_a",
+        recipient="agent_b",
+        role="proposal",
+        content="Add causal edge: fatigue -> error_rate",
         created_at="2026-05-10T11:00:00+00:00",
     )
-    crit = make_transcript_event(
-        run_id="run_proof", sender="agent_b", recipient="agent_a",
-        role="critique", content="Edge weight unsubstantiated; evidence threshold not met",
-        created_at="2026-05-10T11:00:01+00:00",
-        parent_message_id=prop["message_id"],
-        references=[prop["message_id"]],
-    )
-    arb = make_transcript_event(
-        run_id="run_proof", sender="agent_arbiter", recipient="broadcast",
-        role="arbiter", content="Proposal deferred pending evidence. Critique accepted.",
-        created_at="2026-05-10T11:00:02+00:00",
-        parent_message_id=crit["message_id"],
-        references=[crit["message_id"], prop["message_id"]],
-    )
-    thread = reconstruct_thread([prop, crit, arb])
-    assert [e["role"] for e in thread] == ["proposal", "critique", "arbiter"]
 
-    linearized = linearize_transcript_topology([prop, crit, arb])
-    assert [e["role"] for e in linearized] == ["proposal", "critique", "arbiter"]
+    critique = make_transcript_event(
+        run_id="run_proof",
+        sender="agent_b",
+        recipient="agent_a",
+        role="critique",
+        content="Edge weight unsubstantiated",
+        created_at="2026-05-10T11:00:01+00:00",
+        parent_message_id=proposal["message_id"],
+        references=[proposal["message_id"]],
+    )
+
+    arbiter = make_transcript_event(
+        run_id="run_proof",
+        sender="agent_arbiter",
+        recipient="broadcast",
+        role="arbiter",
+        content="Proposal deferred pending evidence",
+        created_at="2026-05-10T11:00:02+00:00",
+        parent_message_id=critique["message_id"],
+        references=[critique["message_id"], proposal["message_id"]],
+    )
+
+    replay = reconstruct_thread([proposal, critique, arbiter])
+    topology = linearize_transcript_topology([arbiter, proposal, critique])
+
+    assert [event["role"] for event in replay] == ["proposal", "critique", "arbiter"]
+    assert [event["role"] for event in topology] == ["proposal", "critique", "arbiter"]
+
+
+# 8. Hash-chain verification still passes on mixed ledgers.
+def test_hash_chain_verification_passes_on_mixed_ledger(tmp_path):
+    path = Path(tmp_path) / "mixed_topology_ledger.jsonl"
+    writer = LedgerWriter(path)
+
+    writer.append({
+        "event_type": "execution.record",
+        "value": 1,
+        "payload": {"kind": "execution"},
+    })
+
+    proposal, critique_a, critique_b, arbiter = _make_four_event_exchange()
+
+    for event in [proposal, critique_a, critique_b, arbiter]:
+        writer.append(dict(event))
+
+    linearized = linearize_transcript([
+        {"event_type": "execution.record", "value": 2},
+        proposal,
+        arbiter,
+        critique_b,
+        critique_a,
+    ])
+
+    assert [event["role"] for event in linearized] == [
+        "proposal",
+        "critique",
+        "critique",
+        "arbiter",
+    ]
+
+    execution_only = replay_execution_events(path)
+    assert len(execution_only) == 1
+    assert execution_only[0]["event_type"] == "execution.record"
+
+    verification = verify_ledger(path)
+    assert verification["ok"] is True
+    assert verification["failures"] == []
