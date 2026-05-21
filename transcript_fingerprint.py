@@ -43,7 +43,7 @@ def compute_topology_fingerprint(events: list[dict]) -> str:
     """
     linearized = linearize_transcript_topology(list(events))
     tuples = [
-        (e["message_id"], e.get("parent_message_id") or "")
+        [e["message_id"], e.get("parent_message_id") or None]
         for e in linearized
     ]
     payload = _canonical(tuples).encode("utf-8")
