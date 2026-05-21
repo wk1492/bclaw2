@@ -37,6 +37,7 @@ from typing import Any, NamedTuple
 
 from cognitive_transaction import CognitiveTransaction
 from ledger_writer import LedgerWriter
+from retention_policy import RetentionPolicy, TailRetention
 from model_runner import run_proposal
 from replay_audit import compute_replay_audit
 from substrate_errors import SUBSTRATE_VERSION
@@ -130,20 +131,26 @@ def _safe_result_view(event: dict[str, Any]) -> dict[str, Any]:
 def build_history_summary(
     events: list[dict[str, Any]],
     max_events: int = DEFAULT_MAX_HISTORY_EVENTS,
+    retention_policy: RetentionPolicy | None = None,
 ) -> list[dict[str, Any]]:
     """
     Bounded, deterministic summary of recent transcript events.
 
+    retention_policy controls which events survive. When None, defaults to
+    TailRetention(max_events) — the last N events (backward-compatible).
+    Any RetentionPolicy implementation may be supplied; it must be pure and
+    deterministic (no I/O, no randomness, no wall-clock time).
+
+    The ledger is never pruned. Forgetting is a view-layer operation only.
+
     - Derived solely from already-replayed transcript events (no I/O).
     - Ordered by topology linearization order from replay_transcript_events.
-    - Bounded: at most max_events events (tail truncation).
-    - Deterministic: identical input → identical output.
+    - Deterministic: identical input + identical policy → identical output.
     - No randomness, no wall-clock time, no UUIDs introduced.
     - Prior events are never mutated.
     """
-    if max_events < 1:
-        raise ValueError("max_events must be at least 1")
-    bounded = events[-max_events:] if len(events) > max_events else events
+    policy = retention_policy if retention_policy is not None else TailRetention(max_events)
+    bounded = policy.select(events)
     return [_safe_result_view(e) for e in bounded]
 
 
