@@ -163,3 +163,80 @@ def test_branching_critique_graph_stable():
     fp = compute_topology_fingerprint(branch)
     assert fp == compute_topology_fingerprint(list(reversed(branch)))
     assert fp == "0299d56f269c2c86ff9fc3cd543273a4c77ace6a5108f54be78cd8e89a8b436b"
+
+
+# ── Additional V2 tests ───────────────────────────────────────────────────────
+
+def test_branching_change_changes_hash():
+    """Moving a node to a different parent changes the fingerprint."""
+    base   = [_evt("r"), _evt("a", parent="r"), _evt("b", parent="r")]
+    moved  = [_evt("r"), _evt("a", parent="r"), _evt("b", parent="a")]
+    assert compute_topology_fingerprint(base) != compute_topology_fingerprint(moved)
+
+
+def test_root_change_changes_hash():
+    """Different root id → different fingerprint."""
+    g1 = [_evt("tmsg_root1"), _evt("tmsg_child", parent="tmsg_root1")]
+    g2 = [_evt("tmsg_root2"), _evt("tmsg_child", parent="tmsg_root2")]
+    assert compute_topology_fingerprint(g1) != compute_topology_fingerprint(g2)
+
+
+def test_mixed_event_stream_stable():
+    """Mixed execution + transcript stream produces same hash as transcript-only."""
+    transcript = [_evt("tmsg_r"), _evt("tmsg_c", parent="tmsg_r")]
+    mixed = [
+        {"event_type": "model_call_record", "run_id": "x"},
+        transcript[0],
+        {"event_type": "routing_decision_record"},
+        transcript[1],
+        {"event_type": "model_output_record", "run_id": "x"},
+    ]
+    assert compute_topology_fingerprint(transcript) == compute_topology_fingerprint(mixed)
+
+
+def test_unicode_parent_ids_stable():
+    """Unicode in parent_message_id is preserved exactly."""
+    events = [
+        {"event_type": _TS, "message_id": "tmsg_中文"},
+        {"event_type": _TS, "message_id": "tmsg_child", "parent_message_id": "tmsg_中文"},
+    ]
+    fp1 = compute_topology_fingerprint(events)
+    fp2 = compute_topology_fingerprint(list(reversed(events)))
+    assert fp1 == fp2
+
+
+def test_missing_parent_normalizes_to_null():
+    """Absent key, None value, and empty string all normalize to null."""
+    no_key   = [{"event_type": _TS, "message_id": "tmsg_r"}]
+    none_val = [{"event_type": _TS, "message_id": "tmsg_r", "parent_message_id": None}]
+    empty    = [{"event_type": _TS, "message_id": "tmsg_r", "parent_message_id": ""}]
+    fp = compute_topology_fingerprint(no_key)
+    assert compute_topology_fingerprint(none_val) == fp
+    assert compute_topology_fingerprint(empty) == fp
+
+
+def test_replay_permutation_stability():
+    """All 6 permutations of a 3-node chain produce the same fingerprint."""
+    import itertools
+    events = [_evt("tmsg_r"), _evt("tmsg_a", parent="tmsg_r"), _evt("tmsg_b", parent="tmsg_a")]
+    fps = {compute_topology_fingerprint(list(p)) for p in itertools.permutations(events)}
+    assert len(fps) == 1
+
+
+def test_insertion_order_independence():
+    """Insertion-order independence verified via fixture graphs."""
+    from tests.fixtures.transcript_graphs import linear_chain, EXPECTED_HASHES
+    assert compute_topology_fingerprint(linear_chain()) == EXPECTED_HASHES["linear_chain"]
+    assert compute_topology_fingerprint(list(reversed(linear_chain()))) == EXPECTED_HASHES["linear_chain"]
+
+
+def test_orphan_linearization_matches_topology():
+    """Orphan tuple preserves the dangling parent_message_id value, not null."""
+    from transcript_topology import linearize_transcript_topology
+    events = [_evt("tmsg_root"), _evt("tmsg_orphan", parent="tmsg_ghost")]
+    linearized = linearize_transcript_topology(list(events))
+    orphan_evt = next(e for e in linearized if e["message_id"] == "tmsg_orphan")
+    assert orphan_evt.get("parent_message_id") == "tmsg_ghost"  # topology preserves it
+    # Fingerprint uses same value
+    fp = compute_topology_fingerprint(events)
+    assert fp == "63ce393f5ae3be02c473111c7c9ce4980cc1ce69b056fe941c23f93cbba3e86a"
