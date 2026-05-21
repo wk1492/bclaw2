@@ -84,6 +84,7 @@ def replay_transcript_topology(path) -> dict:
             "topology_hash": _sha256(_canonical(empty_order)),
         }
 
+    input_index = {e["message_id"]: i for i, e in enumerate(events)}
     by_id = {e["message_id"]: e for e in events}
 
     orphaned = sorted(
@@ -113,7 +114,7 @@ def replay_transcript_topology(path) -> dict:
                 f"Cycle detected in transcript topology involving "
                 f"{len(remaining)} node(s): {sorted(remaining)}"
             )
-        emitted.add(min(ready, key=lambda mid: (by_id[mid].get("created_at", ""), mid)))
+        emitted.add(min(ready, key=lambda mid: (mid.encode("utf-8"), input_index[mid])))
         remaining -= emitted
 
     linearized = linearize_transcript_topology(events)
